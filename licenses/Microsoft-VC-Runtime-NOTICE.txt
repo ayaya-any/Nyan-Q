@@ -1,0 +1,27 @@
+Microsoft Visual C++ Redistributable Runtime Notice
+====================================================
+
+Clash-Q is built with Microsoft Visual C++ and redistributes the Microsoft
+Visual C++ x64 runtime DLLs alongside the application so that a matching
+runtime is available without a separate installation step.
+
+The redistributed files are:
+  concrt140.dll
+  msvcp140.dll
+  msvcp140_1.dll
+  msvcp140_2.dll
+  msvcp140_atomic_wait.dll
+  msvcp140_codecvt_ids.dll
+  vccorlib140.dll
+  vcruntime140.dll
+  vcruntime140_1.dll
+  vcruntime140_threads.dll
+
+These files are Microsoft redistributable components and remain subject to
+the Microsoft Visual Studio / Visual C++ Redistributable license terms.
+See:
+  https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist
+  https://visualstudio.microsoft.com/license-terms/
+
+This notice is informational and does not grant any rights to Microsoft
+software beyond those in the applicable Microsoft license.

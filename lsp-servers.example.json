@@ -1,0 +1,23 @@
+{
+  "servers": [
+    {
+      "id": "yaml",
+      "name": "YAML Language Server",
+      "languageId": "yaml",
+      "extensions": ["yaml", "yml"],
+      "command": "${app}/lsp/node.exe",
+      "args": [
+        "${app}/lsp/yaml-language-server/node_modules/yaml-language-server/out/src/server.js",
+        "--stdio"
+      ],
+      "initializationOptions": {
+        "yaml": {
+          "validate": true,
+          "hover": true,
+          "completion": true,
+          "format": { "enable": true }
+        }
+      }
+    }
+  ]
+}

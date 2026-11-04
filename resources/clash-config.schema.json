@@ -1,0 +1,91 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Clash / Mihomo configuration",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "mixed-port": { "type": "integer", "minimum": 0, "maximum": 65535 },
+    "port": { "type": "integer", "minimum": 0, "maximum": 65535 },
+    "socks-port": { "type": "integer", "minimum": 0, "maximum": 65535 },
+    "redir-port": { "type": "integer", "minimum": 0, "maximum": 65535 },
+    "tproxy-port": { "type": "integer", "minimum": 0, "maximum": 65535 },
+    "allow-lan": { "type": "boolean" },
+    "bind-address": { "type": "string" },
+    "mode": { "type": "string", "enum": ["rule", "global", "direct"] },
+    "log-level": {
+      "type": "string",
+      "enum": ["info", "warning", "debug", "error", "silent"]
+    },
+    "ipv6": { "type": "boolean" },
+    "external-controller": { "type": "string" },
+    "secret": { "type": "string" },
+    "unified-delay": { "type": "boolean" },
+    "tcp-concurrent": { "type": "boolean" },
+    "find-process-mode": {
+      "type": "string",
+      "enum": ["always", "strict", "off"]
+    },
+    "geodata-mode": { "type": "boolean" },
+    "global-client-fingerprint": { "type": "string" },
+    "proxies": { "type": "array", "items": { "type": "object" } },
+    "proxy-groups": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "type": {
+            "type": "string",
+            "enum": ["select", "url-test", "fallback", "load-balance", "relay"]
+          },
+          "proxies": { "type": "array", "items": { "type": "string" } },
+          "url": { "type": "string" },
+          "interval": { "type": "integer", "minimum": 1 }
+        },
+        "required": ["name", "type"],
+        "additionalProperties": true
+      }
+    },
+    "proxy-providers": { "type": "object" },
+    "rule-providers": { "type": "object" },
+    "rules": { "type": "array", "items": { "type": "string" } },
+    "hosts": { "type": "object" },
+    "dns": {
+      "type": "object",
+      "properties": {
+        "enable": { "type": "boolean" },
+        "ipv6": { "type": "boolean" },
+        "enhanced-mode": {
+          "type": "string",
+          "enum": ["fake-ip", "redir-host", "normal"]
+        },
+        "fake-ip-range": { "type": "string" },
+        "nameserver": { "type": "array", "items": { "type": "string" } },
+        "fallback": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": true
+    },
+    "tun": {
+      "type": "object",
+      "properties": {
+        "enable": { "type": "boolean" },
+        "stack": { "type": "string", "enum": ["system", "gvisor", "mixed"] },
+        "device": { "type": "string" },
+        "auto-route": { "type": "boolean" },
+        "auto-detect-interface": { "type": "boolean" },
+        "dns-hijack": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": true
+    },
+    "sniffer": {
+      "type": "object",
+      "properties": {
+        "enable": { "type": "boolean" },
+        "force-dns-mapping": { "type": "boolean" },
+        "parse-pure-ip": { "type": "boolean" }
+      },
+      "additionalProperties": true
+    },
+    "profile": { "type": "object" }
+  }
+}

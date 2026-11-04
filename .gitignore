@@ -1,0 +1,13 @@
+build/
+build-*/
+dist/
+out/
+.vs/
+.vscode/
+.cache/
+*.user
+*.suo
+*.VC.db
+*.log
+*.tmp
+third_party/mihomo/*.zip
