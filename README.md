@@ -7,7 +7,9 @@
 面向 Windows 的 Clash / Mihomo 桌面客户端，使用 Qt 6 Widgets、C++20 与
 Material 3 风格组件，通过本机 REST API 管理 Mihomo 内核。
 
-![仪表盘](docs/screenshots/dashboard.png)
+| 深色主题 | 浅色主题 |
+|:---:|:---:|
+| ![深色仪表盘](docs/screenshots/dashboard.png) | ![浅色仪表盘](docs/screenshots/dashboard-light.png) |
 
 ## 功能
 
