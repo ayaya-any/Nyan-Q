@@ -53,6 +53,9 @@ private:
     void toggleMaximize();
     void saveWindowGeometry();
     void restoreWindowGeometry();
+    void enableResizeFrame();
+    void setupResizeHandles();
+    void layoutResizeHandles();
     void closeConfigEditor();
     bool ensureEditorClosable();
 
@@ -71,6 +74,7 @@ private:
     LogsPage* m_logs = nullptr;
     SettingsPage* m_settings = nullptr;
     M3Snackbar* m_snackbar = nullptr;
+    QWidget* m_resizeHandles[8] = {};
 
     QSystemTrayIcon* m_tray = nullptr;
     QMenu* m_trayMenu = nullptr;
@@ -86,4 +90,5 @@ private:
     bool m_trayHintShown = false;
     bool m_centered = false;
     bool m_themeRefreshedOnShow = false;
+    bool m_resizeFrameEnabled = false;
 };

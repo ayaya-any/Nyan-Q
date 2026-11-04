@@ -24,6 +24,7 @@
 #include <QCursor>
 #include <QHBoxLayout>
 #include <QMenu>
+#include <QMouseEvent>
 #include <QPainter>
 #include <QPainterPath>
 #include <QPalette>
@@ -43,6 +44,44 @@
 #endif
 
 namespace {
+class ResizeHandle final : public QWidget {
+public:
+    explicit ResizeHandle(Qt::Edges edges, QWidget* parent = nullptr)
+        : QWidget(parent)
+        , m_edges(edges)
+    {
+        setAttribute(Qt::WA_NoSystemBackground, true);
+        setAutoFillBackground(false);
+        setMouseTracking(true);
+        if (edges == (Qt::LeftEdge | Qt::TopEdge) || edges == (Qt::RightEdge | Qt::BottomEdge))
+            setCursor(Qt::SizeFDiagCursor);
+        else if (edges == (Qt::RightEdge | Qt::TopEdge) ||
+                 edges == (Qt::LeftEdge | Qt::BottomEdge))
+            setCursor(Qt::SizeBDiagCursor);
+        else if (edges & (Qt::LeftEdge | Qt::RightEdge))
+            setCursor(Qt::SizeHorCursor);
+        else
+            setCursor(Qt::SizeVerCursor);
+    }
+
+protected:
+    void mousePressEvent(QMouseEvent* event) override
+    {
+        if (event->button() == Qt::LeftButton) {
+            if (auto* handle = window()->windowHandle()) {
+                if (handle->startSystemResize(m_edges)) {
+                    event->accept();
+                    return;
+                }
+            }
+        }
+        QWidget::mousePressEvent(event);
+    }
+
+private:
+    Qt::Edges m_edges;
+};
+
 class RootBackdrop : public QWidget {
 public:
     explicit RootBackdrop(QWidget* parent = nullptr)
@@ -111,6 +150,7 @@ MainWindow::MainWindow(ClashController* controller, QWidget* parent)
     wire();
     setupShortcuts();
     setupTray();
+    setupResizeHandles();
 
     connect(&Theme::instance(), &Theme::changed, this, &MainWindow::applyTheme);
     restoreWindowGeometry();
@@ -513,6 +553,7 @@ void MainWindow::changeEvent(QEvent* event)
 {
     if (event->type() == QEvent::WindowStateChange) {
         m_titleBar->setMaximized(isMaximized());
+        layoutResizeHandles();
         if (isVisible())
             m_snackbar->reposition();
     }
@@ -522,13 +563,83 @@ void MainWindow::changeEvent(QEvent* event)
 void MainWindow::resizeEvent(QResizeEvent* event)
 {
     QMainWindow::resizeEvent(event);
+    layoutResizeHandles();
     if (m_snackbar)
         m_snackbar->reposition();
+}
+
+void MainWindow::setupResizeHandles()
+{
+    const Qt::Edges edges[8] = {
+        Qt::LeftEdge,
+        Qt::RightEdge,
+        Qt::TopEdge,
+        Qt::BottomEdge,
+        Qt::LeftEdge | Qt::TopEdge,
+        Qt::RightEdge | Qt::TopEdge,
+        Qt::LeftEdge | Qt::BottomEdge,
+        Qt::RightEdge | Qt::BottomEdge,
+    };
+    for (int i = 0; i < 8; ++i) {
+        m_resizeHandles[i] = new ResizeHandle(edges[i], this);
+        m_resizeHandles[i]->show();
+        m_resizeHandles[i]->raise();
+    }
+    layoutResizeHandles();
+}
+
+void MainWindow::layoutResizeHandles()
+{
+    if (m_resizeHandles[0] == nullptr)
+        return;
+    const bool hidden = isMaximized() || isFullScreen() || !isVisible();
+    const int border = 7;
+    const int w = width();
+    const int h = height();
+    const int corner = 12;
+    const QRect geometries[8] = {
+        QRect(0, corner, border, qMax(0, h - 2 * corner)),
+        QRect(w - border, corner, border, qMax(0, h - 2 * corner)),
+        QRect(corner, 0, qMax(0, w - 2 * corner), border),
+        QRect(corner, h - border, qMax(0, w - 2 * corner), border),
+        QRect(0, 0, corner, corner),
+        QRect(w - corner, 0, corner, corner),
+        QRect(0, h - corner, corner, corner),
+        QRect(w - corner, h - corner, corner, corner),
+    };
+    for (int i = 0; i < 8; ++i) {
+        m_resizeHandles[i]->setGeometry(geometries[i]);
+        m_resizeHandles[i]->setVisible(!hidden);
+        if (!hidden)
+            m_resizeHandles[i]->raise();
+    }
+}
+
+void MainWindow::enableResizeFrame()
+{
+#ifdef Q_OS_WIN
+    if (m_resizeFrameEnabled)
+        return;
+    const HWND hwnd = reinterpret_cast<HWND>(winId());
+    if (!hwnd)
+        return;
+    LONG_PTR style = GetWindowLongPtr(hwnd, GWL_STYLE);
+    if ((style & WS_THICKFRAME) == 0) {
+        style |= WS_THICKFRAME;
+        SetWindowLongPtr(hwnd, GWL_STYLE, style);
+        SetWindowPos(hwnd, nullptr, 0, 0, 0, 0,
+                     SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE |
+                         SWP_FRAMECHANGED);
+    }
+    m_resizeFrameEnabled = true;
+#endif
 }
 
 void MainWindow::showEvent(QShowEvent* event)
 {
     QMainWindow::showEvent(event);
+    enableResizeFrame();
+    layoutResizeHandles();
     if (!m_centered)
         m_centered = true;
     if (m_snackbar)
