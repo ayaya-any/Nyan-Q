@@ -10,7 +10,8 @@
 param(
     [string]$QtDir = $(if ($env:QT_ROOT) { $env:QT_ROOT } else { "D:\Qt\6.12.0\msvc2022_64" }),
     [string]$BuildDir = "",
-    [switch]$SkipTests
+    [switch]$SkipTests,
+    [switch]$Installer
 )
 
 $ErrorActionPreference = "Stop"
@@ -46,6 +47,18 @@ function Resolve-CMake {
         if (Test-Path $candidate) { return $candidate }
     }
     throw "cmake.exe not found. Install CMake or Visual Studio's CMake tools."
+}
+
+function Resolve-Iscc {
+    $candidates = @(
+        (Join-Path $Root "tools\innosetup\app\ISCC.exe"),
+        (Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6\ISCC.exe"),
+        (Join-Path $env:ProgramFiles "Inno Setup 6\ISCC.exe")
+    )
+    foreach ($candidate in $candidates) {
+        if ($candidate -and (Test-Path $candidate)) { return $candidate }
+    }
+    throw "ISCC.exe not found. Install Inno Setup 6 or place a portable copy under tools\innosetup."
 }
 
 function Find-VisualStudio {
@@ -184,8 +197,10 @@ if ($VSInstall) {
         if ($versionDir) {
             $crtDir = Join-Path $versionDir.FullName "x64\Microsoft.VC143.CRT"
             Copy-Item (Join-Path $crtDir "*.dll") $OutDir -Force
-            $installer = Join-Path $OutDir "vc_redist.x64.exe"
-            if (Test-Path $installer) { Remove-Item -LiteralPath $installer -Force }
+            $stagedVCRedist = Join-Path $OutDir "vc_redist.x64.exe"
+            if (Test-Path $stagedVCRedist) {
+                Remove-Item -LiteralPath $stagedVCRedist -Force
+            }
         }
     }
 }
@@ -232,3 +247,24 @@ Write-Host ""
 Write-Host "Package ready:" -ForegroundColor Green
 Write-Host "  $OutDir"
 Write-Host "  $ZipPath ($sizeMb MB)"
+
+if ($Installer) {
+    Write-Host ""
+    Write-Host "== Clash-Q / installer ==" -ForegroundColor Cyan
+    $Iscc = Resolve-Iscc
+    $VCRedist = Join-Path $Root "third_party\vcredist\vc_redist.x64.exe"
+    if (-not (Test-Path $VCRedist)) {
+        throw "VC++ redistributable not found: $VCRedist"
+    }
+    $SetupPath = Join-Path $DistRoot "Clash-Q-$Version-win64-setup.exe"
+    if (Test-Path $SetupPath) { Remove-Item -LiteralPath $SetupPath -Force }
+    & $Iscc "/DAppVersion=$Version" "/DPayloadDir=$OutDir" `
+        "/DOutputDir=$DistRoot" "/DVCRedistPath=$VCRedist" `
+        (Join-Path $Root "scripts\installer.iss")
+    if ($LASTEXITCODE -ne 0) { throw "Inno Setup compilation failed." }
+    if (-not (Test-Path $SetupPath)) {
+        throw "Installer was not produced: $SetupPath"
+    }
+    $setupSizeMb = [math]::Round((Get-Item $SetupPath).Length / 1MB, 1)
+    Write-Host "  $SetupPath ($setupSizeMb MB)" -ForegroundColor Green
+}

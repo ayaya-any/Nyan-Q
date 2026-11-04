@@ -28,7 +28,9 @@ Mihomo 进程通过本机 HTTP REST API 由 Clash-Q 控制，未与 Clash-Q 静�
 
 - 用途：应用所需的 MSVC x64 运行库（`msvcp140.dll`、`vcruntime140.dll` 等）。
 - 授权：Microsoft Visual C++ Redistributable 许可。
-- 说明：发布脚本从已安装的 Visual Studio 可再发行组件目录复制这些 DLL。
+- 说明：发布脚本从已安装的 Visual Studio 可再发行组件目录复制这些 DLL；
+  安装包同时内置官方 `vc_redist.x64.exe`，在运行库缺失或版本过旧时检测并安装。
+- 安装包内的运行库来源：https://aka.ms/vs/17/release/vc_redist.x64.exe
 - 参考：https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist
 
 ## Node.js

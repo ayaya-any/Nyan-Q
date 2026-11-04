@@ -192,7 +192,28 @@ cmake --build build --config Release --target deploy
 生成：
 
 - `dist\Clash-Q\`：可直接运行的完整目录
-- `dist\Clash-Q-0.1.0-win64.zip`：分发包
+- `dist\Clash-Q-0.1.0-win64.zip`：便携分发包
+
+制作安装包需要 Inno Setup 6。仓库内提供了便携编译器
+`tools\innosetup\app\ISCC.exe`，也可以使用系统安装的 Inno Setup 6：
+
+```powershell
+.\scripts\package.ps1 -QtDir "D:\Qt\6.12.0\msvc2022_64" -Installer
+```
+
+生成：
+
+- `dist\Clash-Q-0.1.0-win64-setup.exe`：按当前用户安装的简体中文安装包
+- 安装目录默认：`%LOCALAPPDATA%\Programs\Clash-Q`
+- 卸载默认保留 `%LOCALAPPDATA%\Clash-Q` 中的配置、订阅和日志
+
+安装包内置官方 `vc_redist.x64.exe`。安装前会检查：
+
+```text
+HKLM\SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64
+```
+
+如果 x64 VC++ 2015–2022 运行库缺失或版本过旧，会先静默安装运行库；需要时会请求重启。
 
 ### Qt Creator
 
