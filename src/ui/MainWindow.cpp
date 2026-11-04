@@ -355,7 +355,7 @@ void MainWindow::setupTray()
     if (m_controller->isDemo() || !QSystemTrayIcon::isSystemTrayAvailable())
         return;
 
-    m_tray = new QSystemTrayIcon(Theme::instance().appIcon(), this);
+    m_tray = new QSystemTrayIcon(Theme::instance().trayIcon(QStringLiteral("default")), this);
     m_tray->setToolTip(QStringLiteral("Nyan-Q"));
     m_trayMenu = new QMenu(this);
 
@@ -494,8 +494,18 @@ void MainWindow::updateTrayState()
         m_trayGlobalMode->setChecked(m_controller->mode() == QStringLiteral("global"));
     if (m_trayDirectMode)
         m_trayDirectMode->setChecked(m_controller->mode() == QStringLiteral("direct"));
-    if (m_tray->icon().isNull())
-        m_tray->setIcon(Theme::instance().appIcon());
+    QString trayName = QStringLiteral("default");
+    if (m_controller->state() == cq::CoreState::Running) {
+        const QString mode = m_controller->mode();
+        if (m_controller->tunEnabled()) {
+            trayName = QStringLiteral("tun");
+        } else if (m_controller->systemProxyEnabled() &&
+                   (mode == QStringLiteral("rule") || mode == QStringLiteral("global") ||
+                    mode == QStringLiteral("direct"))) {
+            trayName = mode;
+        }
+    }
+    m_tray->setIcon(Theme::instance().trayIcon(trayName));
     updateTrayTooltip();
 }
 

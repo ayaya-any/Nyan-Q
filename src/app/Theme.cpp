@@ -104,6 +104,10 @@ Theme::Theme(QObject* parent)
 {
     m_palette = makeDark();
     m_appIcon = QIcon(QStringLiteral(":/icons/app.png"));
+    for (int size : {16, 24, 32, 48, 64, 128, 256}) {
+        m_appIcon.addFile(QStringLiteral(":/icons/app-%1.png").arg(size),
+                          QSize(size, size));
+    }
 }
 
 QColor Theme::alpha(const QColor& color, int a)
@@ -345,6 +349,27 @@ QFrame { border: none; }
 QIcon Theme::appIcon() const
 {
     return m_appIcon;
+}
+
+QIcon Theme::trayIcon(const QString& name) const
+{
+    const auto cached = m_trayIcons.constFind(name);
+    if (cached != m_trayIcons.constEnd())
+        return *cached;
+
+    QIcon icon;
+    for (int size : {16, 24, 32, 48, 64, 128, 256}) {
+        icon.addFile(QStringLiteral(":/icons/tray/%1-%2.png").arg(name).arg(size),
+                     QSize(size, size));
+    }
+    if (icon.isNull()) {
+        for (int size : {16, 24, 32, 48, 64, 128, 256}) {
+            icon.addFile(QStringLiteral(":/icons/tray/default-%1.png").arg(size),
+                         QSize(size, size));
+        }
+    }
+    m_trayIcons.insert(name, icon);
+    return icon;
 }
 
 QPixmap Theme::appBadge(int size) const

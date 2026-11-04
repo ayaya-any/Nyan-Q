@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QColor>
+#include <QHash>
 #include <QIcon>
 #include <QObject>
 #include <QString>
@@ -51,6 +52,7 @@ public:
     QString scrollBarStyle() const;
     QString menuStyle() const;
     QIcon appIcon() const;
+    QIcon trayIcon(const QString& name) const;
     QPixmap appBadge(int size) const;
 
     static QColor alpha(const QColor& color, int a);
@@ -67,6 +69,7 @@ private:
     QString m_mode = QStringLiteral("dark");
     Palette m_palette;
     QIcon m_appIcon;
+    mutable QHash<QString, QIcon> m_trayIcons;
     bool m_systemConnected = false;
 };
 
