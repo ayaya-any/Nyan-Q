@@ -34,8 +34,7 @@ void ProfilesPage::buildUi()
     root->setContentsMargins(32, 18, 32, 22);
     root->setSpacing(14);
 
-    m_header = new PageHeader(QStringLiteral("订阅与配置"),
-                              QStringLiteral("统一管理 Clash / Mihomo 配置，切换后立即生效。"), this);
+    m_header = new PageHeader(QStringLiteral("订阅与配置"), {}, this);
 
     m_busyPill = new M3Pill(QStringLiteral("正在更新"), this);
     m_busyPill->setTone(M3Pill::Tone::Warning);
@@ -106,10 +105,6 @@ void ProfilesPage::updateBusyState()
     m_busyPill->setVisible(busy);
     m_importUrlButton->setEnabled(!busy);
     m_importFileButton->setEnabled(!busy);
-    m_header->setSubtitle(
-        busy ? QStringLiteral("正在下载并校验订阅配置…")
-             : QStringLiteral("激活的配置会作为 Mihomo 运行时配置来源，切换后热重载，"
-                              "无需重启内核。"));
 }
 
 void ProfilesPage::importUrl()
@@ -207,10 +202,5 @@ void ProfilesPage::rebuild()
     m_countLabel->setText(QStringLiteral("%1 个配置 · %2 个远程订阅")
                               .arg(profiles.size())
                               .arg(subscriptions));
-    m_header->setSubtitle(
-        m_controller->profileStore()->isBusy()
-            ? QStringLiteral("正在下载并校验订阅配置…")
-            : QStringLiteral("激活的配置会作为 Mihomo 运行时配置来源，切换后热重载，"
-                             "无需重启内核。"));
     m_scroll->verticalScrollBar()->setValue(scrollValue);
 }

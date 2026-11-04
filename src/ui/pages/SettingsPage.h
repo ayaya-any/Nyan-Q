@@ -54,6 +54,8 @@ private:
     QLineEdit* m_delayUrl = nullptr;
     QLineEdit* m_corePath = nullptr;
     M3SegmentedControl* m_logLevel = nullptr;
+    M3SegmentedControl* m_appLogLevel = nullptr;
+    M3Switch* m_appLogToFile = nullptr;
     M3SettingRow* m_corePathRow = nullptr;
     M3SettingRow* m_dataRow = nullptr;
     M3Pill* m_coreStatusPill = nullptr;

@@ -10,6 +10,8 @@
 #include <QPainter>
 #include <QPainterPath>
 
+#include <cmath>
+
 ProxyNodeCard::ProxyNodeCard(const cq::ProxyNode& node, bool selected, QWidget* parent)
     : QWidget(parent)
     , m_node(node)
@@ -130,7 +132,11 @@ void ProxyNodeCard::paintEvent(QPaintEvent*)
         direct ? p.secondary : reject ? p.error : Formatters::delayColor(m_node.delay);
     const QFont delayFont = Fonts::text(11, QFont::DemiBold);
     const QFontMetricsF delayMetrics(delayFont);
-    const qreal delayWidth = delayMetrics.horizontalAdvance(delayText) + 20;
+    // Reserve the dot (16px), the text advance, and a small right gutter.
+    // Extra pixels absorb fractional-width rounding at high DPI; otherwise
+    // the final glyph (e.g. the "s" in "404 ms") gets clipped.
+    const qreal delayWidth =
+        std::ceil(delayMetrics.horizontalAdvance(delayText)) + 32;
     const QRectF delayRect(width() - delayWidth - 14, height() - 33, delayWidth, 20);
     painter.setPen(Qt::NoPen);
     painter.setBrush(m_selected ? Theme::alpha(p.onSecondaryContainer, 22)
@@ -140,7 +146,7 @@ void ProxyNodeCard::paintEvent(QPaintEvent*)
     painter.drawEllipse(QPointF(delayRect.left() + 9, delayRect.center().y()), 2.8, 2.8);
     painter.setFont(delayFont);
     painter.setPen(m_selected ? p.onSecondaryContainer : p.onSurfaceVariant);
-    painter.drawText(delayRect.adjusted(16, 0, -7, 0), Qt::AlignVCenter | Qt::AlignLeft,
+    painter.drawText(delayRect.adjusted(16, 0, -8, 0), Qt::AlignVCenter | Qt::AlignLeft,
                      delayText);
 }
 

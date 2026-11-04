@@ -4,10 +4,14 @@
 #include "app/Theme.h"
 #include "core/Formatters.h"
 
+#include <QApplication>
+#include <QClipboard>
+#include <QCursor>
 #include <QDateTime>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPainter>
+#include <QToolTip>
 #include <QUrl>
 #include <QVBoxLayout>
 
@@ -127,6 +131,19 @@ ProfileCard::ProfileCard(const cq::ProfileMeta& profile, QWidget* parent)
     }
 
     if (profile.remote()) {
+        auto* copy = new M3IconButton(QStringLiteral("content_copy"), this);
+        copy->setDiameter(32);
+        copy->setGlyphSize(16);
+        copy->setToolTip(QStringLiteral("复制订阅链接"));
+        copy->setAccessibleName(QStringLiteral("复制订阅链接 %1").arg(profile.name));
+        connect(copy, &QAbstractButton::clicked, this, [this, copy] {
+            if (m_profile.url.isEmpty())
+                return;
+            QApplication::clipboard()->setText(m_profile.url);
+            QToolTip::showText(QCursor::pos(), QStringLiteral("已复制订阅链接"), copy);
+        });
+        actions->addWidget(copy);
+
         auto* update = new M3IconButton(QStringLiteral("refresh"), this);
         update->setDiameter(32);
         update->setGlyphSize(17);

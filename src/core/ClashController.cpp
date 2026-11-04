@@ -31,6 +31,17 @@ namespace {
 constexpr int kStartupTimeoutMs = 35000;
 constexpr int kMaxLogEntries = 2000;
 
+int appLogThreshold(const QString& level)
+{
+    if (level == QStringLiteral("debug"))
+        return static_cast<int>(cq::LogLevel::Debug);
+    if (level == QStringLiteral("warning"))
+        return static_cast<int>(cq::LogLevel::Warning);
+    if (level == QStringLiteral("error"))
+        return static_cast<int>(cq::LogLevel::Error);
+    return static_cast<int>(cq::LogLevel::Info);
+}
+
 QString demoNodeType(const QString& name)
 {
     if (name.contains(QStringLiteral("东京")) || name.contains(QStringLiteral("大阪")))
@@ -1453,6 +1464,8 @@ void ClashController::log(cq::LogLevel level, const QString& message)
 {
     if (message.isEmpty())
         return;
+    if (static_cast<int>(level) < appLogThreshold(m_settings.appLogLevel))
+        return;
     cq::LogEntry entry;
     entry.time = QDateTime::currentDateTime();
     entry.level = level;
@@ -1466,6 +1479,8 @@ void ClashController::log(cq::LogLevel level, const QString& message)
 
 void ClashController::appendLogFile(const cq::LogEntry& entry)
 {
+    if (!m_settings.appLogToFile)
+        return;
     QFile file(AppPaths::logFile());
     if (!file.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text))
         return;

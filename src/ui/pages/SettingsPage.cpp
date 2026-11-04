@@ -201,6 +201,27 @@ void SettingsPage::buildUi()
            QStringLiteral("测速时请求的 204 地址，应返回空响应"), QStringLiteral("speed"),
            m_delayUrl, true);
 
+    // Application logging
+    M3Card* logging = makeSection(
+        m_content, m_sections, QStringLiteral("日志"),
+        QStringLiteral("控制应用自身的日志输出；Mihomo 内核日志级别在内核区域单独设置。"));
+    auto* loggingLayout = qobject_cast<QVBoxLayout*>(logging->layout());
+
+    m_appLogLevel = new M3SegmentedControl(
+        {QStringLiteral("错误"), QStringLiteral("警告"), QStringLiteral("信息"),
+         QStringLiteral("调试")},
+        logging);
+    m_appLogLevel->setCompact(true);
+    m_appLogLevel->setFixedWidth(390);
+    addRow(loggingLayout, logging, QStringLiteral("应用日志级别"),
+           QStringLiteral("低于该级别的应用日志不会记录到历史或文件"),
+           QStringLiteral("receipt_long"), m_appLogLevel, false);
+
+    m_appLogToFile = makeSwitch(logging);
+    addRow(loggingLayout, logging, QStringLiteral("写入日志文件"),
+           QStringLiteral("保存到数据目录，单个日志文件超过 2 MB 自动轮转"),
+           QStringLiteral("description"), m_appLogToFile, true);
+
     // Core
     M3Card* core = makeSection(
         m_content, m_sections, QStringLiteral("内核"),
@@ -249,7 +270,7 @@ void SettingsPage::buildUi()
         core);
     m_logLevel->setCompact(true);
     m_logLevel->setFixedWidth(390);
-    addRow(coreLayout, core, QStringLiteral("日志级别"),
+    addRow(coreLayout, core, QStringLiteral("内核日志级别"),
            QStringLiteral("调试日志会明显增加输出量"), QStringLiteral("receipt_long"),
            m_logLevel, true);
 
@@ -304,6 +325,7 @@ void SettingsPage::buildUi()
     connectSwitch(m_autoLaunch);
     connectSwitch(m_startMinimized);
     connectSwitch(m_closeToTray);
+    connectSwitch(m_appLogToFile);
 
     for (QLineEdit* edit : {m_mixedPort, m_controllerPort, m_delayUrl, m_corePath}) {
         connect(edit, &QLineEdit::textChanged, this, [this](const QString&) {
@@ -316,6 +338,8 @@ void SettingsPage::buildUi()
     connect(m_updateInterval, &M3SegmentedControl::currentChanged, this,
             [this](int, const QString&) { markDirty(); });
     connect(m_logLevel, &M3SegmentedControl::currentChanged, this,
+            [this](int, const QString&) { markDirty(); });
+    connect(m_appLogLevel, &M3SegmentedControl::currentChanged, this,
             [this](int, const QString&) { markDirty(); });
 }
 
@@ -380,6 +404,16 @@ void SettingsPage::refreshFromSettings()
         logIndex = 3;
     m_logLevel->setCurrentIndex(logIndex);
 
+    int appLogIndex = 2;
+    if (settings.appLogLevel == QStringLiteral("error"))
+        appLogIndex = 0;
+    else if (settings.appLogLevel == QStringLiteral("warning"))
+        appLogIndex = 1;
+    else if (settings.appLogLevel == QStringLiteral("debug"))
+        appLogIndex = 3;
+    m_appLogLevel->setCurrentIndex(appLogIndex);
+    m_appLogToFile->setChecked(settings.appLogToFile);
+
     m_dataRow->setSubtitle(QDir::toNativeSeparators(AppPaths::dataDir()));
     m_syncing = false;
 }
@@ -423,6 +457,11 @@ void SettingsPage::apply()
     static const QStringList levels = {QStringLiteral("info"), QStringLiteral("warning"),
                                       QStringLiteral("error"), QStringLiteral("debug")};
     next.logLevel = levels.value(m_logLevel->currentIndex(), QStringLiteral("info"));
+    static const QStringList appLevels = {QStringLiteral("error"), QStringLiteral("warning"),
+                                          QStringLiteral("info"), QStringLiteral("debug")};
+    next.appLogLevel =
+        appLevels.value(m_appLogLevel->currentIndex(), QStringLiteral("info"));
+    next.appLogToFile = m_appLogToFile->isChecked();
     static const QList<int> intervals = {0, 6, 12, 24};
     next.subscriptionIntervalHours = intervals.value(m_updateInterval->currentIndex(), 0);
     // The mode is controlled from the dashboard; preserve its current value.

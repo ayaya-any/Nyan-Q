@@ -247,11 +247,20 @@ ConnectionListView::ConnectionListView(QWidget* parent)
 {
     setMouseTracking(true);
     viewport()->setMouseTracking(true);
-    setCursor(Qt::PointingHandCursor);
+    viewport()->setCursor(Qt::ArrowCursor);
     setSelectionMode(QAbstractItemView::NoSelection);
     setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
     setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     setUniformItemSizes(true);
+}
+
+void ConnectionListView::mouseMoveEvent(QMouseEvent* event)
+{
+    const QPoint pos = event->position().toPoint();
+    const QModelIndex index = indexAt(pos);
+    const bool overClose = index.isValid() && pos.x() >= viewport()->width() - 54;
+    viewport()->setCursor(overClose ? Qt::PointingHandCursor : Qt::ArrowCursor);
+    QListView::mouseMoveEvent(event);
 }
 
 void ConnectionListView::mouseReleaseEvent(QMouseEvent* event)
@@ -260,10 +269,17 @@ void ConnectionListView::mouseReleaseEvent(QMouseEvent* event)
         const QPoint pos = event->position().toPoint();
         const QModelIndex index = indexAt(pos);
         if (index.isValid() && pos.x() >= viewport()->width() - 54) {
+            viewport()->setCursor(Qt::ArrowCursor);
             emit closeRequested(index.data(ConnectionListModel::IdRole).toString());
             event->accept();
             return;
         }
     }
     QListView::mouseReleaseEvent(event);
+}
+
+void ConnectionListView::leaveEvent(QEvent* event)
+{
+    viewport()->setCursor(Qt::ArrowCursor);
+    QListView::leaveEvent(event);
 }

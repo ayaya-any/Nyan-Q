@@ -18,6 +18,8 @@ struct AppSettings {
     bool allowLan = false;
     QString mode = QStringLiteral("rule");
     QString logLevel = QStringLiteral("info");
+    QString appLogLevel = QStringLiteral("info");
+    bool appLogToFile = true;
     bool ipv6 = false;
     bool tunEnabled = false;
     bool autoLaunch = false;

@@ -41,6 +41,10 @@ cq::AppSettings SettingsStore::load()
 
     settings.logLevel =
         ini.value(QStringLiteral("core/logLevel"), settings.logLevel).toString().toLower();
+    settings.appLogLevel =
+        ini.value(QStringLiteral("logging/level"), settings.appLogLevel).toString().toLower();
+    settings.appLogToFile =
+        ini.value(QStringLiteral("logging/toFile"), settings.appLogToFile).toBool();
     settings.corePath = ini.value(QStringLiteral("core/path"), QString()).toString();
     settings.delayTestUrl =
         ini.value(QStringLiteral("core/delayTestUrl"), settings.delayTestUrl).toString();
@@ -78,6 +82,10 @@ cq::AppSettings SettingsStore::load()
                                 QStringLiteral("error")};
     if (!levels.contains(settings.logLevel))
         settings.logLevel = QStringLiteral("info");
+    const QStringList appLevels = {QStringLiteral("error"), QStringLiteral("warning"),
+                                   QStringLiteral("info"), QStringLiteral("debug")};
+    if (!appLevels.contains(settings.appLogLevel))
+        settings.appLogLevel = QStringLiteral("info");
 
     return settings;
 }
@@ -96,6 +104,8 @@ void SettingsStore::save(const cq::AppSettings& settings)
     ini.setValue(QStringLiteral("network/tun"), settings.tunEnabled);
 
     ini.setValue(QStringLiteral("core/logLevel"), settings.logLevel);
+    ini.setValue(QStringLiteral("logging/level"), settings.appLogLevel);
+    ini.setValue(QStringLiteral("logging/toFile"), settings.appLogToFile);
     ini.setValue(QStringLiteral("core/path"), settings.corePath);
     ini.setValue(QStringLiteral("core/delayTestUrl"), settings.delayTestUrl);
 
