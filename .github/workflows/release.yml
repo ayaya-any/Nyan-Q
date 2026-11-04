@@ -52,6 +52,11 @@ jobs:
           Write-Host "Version: $version"
           Write-Host "Previous tag: $previous"
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
       - name: Install Qt
         id: qt
         uses: jurplel/install-qt-action@v4
@@ -59,6 +64,7 @@ jobs:
           version: "6.12.0"
           arch: "win64_msvc2022_64"
           cache: true
+          setup-python: false
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
