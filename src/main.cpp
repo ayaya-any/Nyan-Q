@@ -74,7 +74,7 @@ QString singleInstanceName()
                                                      QCryptographicHash::Sha1)
                                 .toHex()
                                 .left(16);
-    return QStringLiteral("Clash-Q-") + QString::fromLatin1(hash);
+    return QStringLiteral("Nyan-Q-") + QString::fromLatin1(hash);
 }
 
 bool notifyExistingInstance(const QString& name)
@@ -105,11 +105,11 @@ int main(int argc, char* argv[])
     QGuiApplication::setHighDpiScaleFactorRoundingPolicy(
         Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
     QApplication app(argc, argv);
-    QApplication::setApplicationName(QStringLiteral("Clash-Q"));
-    QApplication::setApplicationDisplayName(QStringLiteral("Clash-Q"));
-    QApplication::setApplicationVersion(QStringLiteral(CLASHQ_VERSION));
-    QApplication::setOrganizationName(QStringLiteral("Clash-Q"));
-    QApplication::setOrganizationDomain(QStringLiteral("clash-q.local"));
+    QApplication::setApplicationName(QStringLiteral("Nyan-Q"));
+    QApplication::setApplicationDisplayName(QStringLiteral("Nyan-Q"));
+    QApplication::setApplicationVersion(QStringLiteral(NYANQ_VERSION));
+    QApplication::setOrganizationName(QStringLiteral("Nyan-Q"));
+    QApplication::setOrganizationDomain(QStringLiteral("nyan-q.local"));
     QApplication::setQuitOnLastWindowClosed(false);
     QApplication::setStyle(QStyleFactory::create(QStringLiteral("Fusion")));
     QLocale::setDefault(QLocale(QLocale::Chinese, QLocale::China));
@@ -120,7 +120,7 @@ int main(int argc, char* argv[])
 
     QCommandLineParser parser;
     parser.setApplicationDescription(
-        QStringLiteral("Clash-Q · Material 风格的 Mihomo 桌面客户端"));
+        QStringLiteral("Nyan-Q · Material 风格的 Mihomo 桌面客户端"));
     parser.addHelpOption();
     parser.addVersionOption();
 
@@ -164,14 +164,14 @@ int main(int argc, char* argv[])
 
     std::unique_ptr<QTemporaryDir> transientDir;
     if (demo) {
-        const QString pattern = QDir::tempPath() + QStringLiteral("/Clash-Q-preview-XXXXXX");
+        const QString pattern = QDir::tempPath() + QStringLiteral("/Nyan-Q-preview-XXXXXX");
         transientDir = std::make_unique<QTemporaryDir>(pattern);
         if (transientDir->isValid())
             AppPaths::setDataDirOverride(transientDir->path());
         AppPaths::ensureDirectories();
     } else if (smokeTest) {
         transientDir = std::make_unique<QTemporaryDir>(
-            QDir::tempPath() + QStringLiteral("/Clash-Q-smoke-XXXXXX"));
+            QDir::tempPath() + QStringLiteral("/Nyan-Q-smoke-XXXXXX"));
         if (transientDir->isValid())
             AppPaths::setDataDirOverride(transientDir->path());
         AppPaths::ensureDirectories();
@@ -186,7 +186,7 @@ int main(int argc, char* argv[])
         QSettings ini(AppPaths::settingsFile(), QSettings::IniFormat);
         ini.setValue(QStringLiteral("network/mixedPort"), mixedPort);
         ini.setValue(QStringLiteral("network/controllerPort"), controllerPort);
-        ini.setValue(QStringLiteral("network/secret"), QStringLiteral("clashq-smoke-secret"));
+        ini.setValue(QStringLiteral("network/secret"), QStringLiteral("nyanq-smoke-secret"));
         ini.setValue(QStringLiteral("core/logLevel"), QStringLiteral("info"));
         ini.setValue(QStringLiteral("behavior/autoLaunch"), false);
         ini.setValue(QStringLiteral("behavior/closeToTray"), false);

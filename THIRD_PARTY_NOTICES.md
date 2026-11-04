@@ -1,6 +1,6 @@
 # Third-party notices
 
-Clash-Q 自身源代码以 MIT License 发布（见 `LICENSE`）。发布包还包含下列
+Nyan-Q 自身源代码以 MIT License 发布（见 `LICENSE`）。发布包还包含下列
 第三方软件、运行时、字体和资源。它们各自保留原始版权与许可证。
 
 ## Qt 6.12.0
@@ -22,7 +22,7 @@ Clash-Q 自身源代码以 MIT License 发布（见 `LICENSE`）。发布包还�
 - 源码：https://github.com/MetaCubeX/mihomo
 - 发布页：https://github.com/MetaCubeX/mihomo/releases
 
-Mihomo 进程通过本机 HTTP REST API 由 Clash-Q 控制，未与 Clash-Q 静态链接。
+Mihomo 进程通过本机 HTTP REST API 由 Nyan-Q 控制，未与 Nyan-Q 静态链接。
 
 ## Microsoft Visual C++ Runtime
 
@@ -49,7 +49,7 @@ Mihomo 进程通过本机 HTTP REST API 由 Clash-Q 控制，未与 Clash-Q 静�
 - 许可证：`licenses/Yaml-Language-Server-LICENSE.txt`。
 - 源码：https://github.com/redhat-developer/yaml-language-server
 
-Node.js 与 YAML Language Server 以独立子进程运行，未与 Clash-Q 静态链接。
+Node.js 与 YAML Language Server 以独立子进程运行，未与 Nyan-Q 静态链接。
 
 ## Wintun
 

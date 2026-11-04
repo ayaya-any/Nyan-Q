@@ -160,17 +160,17 @@ void SettingsPage::buildUi()
     // Startup and behavior
     M3Card* behavior = makeSection(
         m_content, m_sections, QStringLiteral("启动与行为"),
-        QStringLiteral("控制 Clash-Q 的启动、托盘与窗口行为。Mihomo 随应用启动和退出。"));
+        QStringLiteral("控制 Nyan-Q 的启动、托盘与窗口行为。Mihomo 随应用启动和退出。"));
     auto* behaviorLayout = qobject_cast<QVBoxLayout*>(behavior->layout());
 
     m_autoLaunch = makeSwitch(behavior);
     addRow(behaviorLayout, behavior, QStringLiteral("开机自动启动"),
-           QStringLiteral("通过 Windows 当前用户启动项添加 Clash-Q"), QStringLiteral("login"),
+           QStringLiteral("通过 Windows 当前用户启动项添加 Nyan-Q"), QStringLiteral("login"),
            m_autoLaunch, true);
 
     m_startMinimized = makeSwitch(behavior);
     addRow(behaviorLayout, behavior, QStringLiteral("启动时最小化"),
-           QStringLiteral("启动后只显示托盘的 Clash-Q 图标"), QStringLiteral("minimize"),
+           QStringLiteral("启动后只显示托盘的 Nyan-Q 图标"), QStringLiteral("minimize"),
            m_startMinimized, true);
 
     m_closeToTray = makeSwitch(behavior);
@@ -225,14 +225,14 @@ void SettingsPage::buildUi()
     // Core
     M3Card* core = makeSection(
         m_content, m_sections, QStringLiteral("内核"),
-        QStringLiteral("Clash-Q 通过本地 REST API 控制 Mihomo，不修改内核二进制。"));
+        QStringLiteral("Nyan-Q 通过本地 REST API 控制 Mihomo，不修改内核二进制。"));
     auto* coreLayout = qobject_cast<QVBoxLayout*>(core->layout());
 
     m_coreStatusPill = new M3Pill(QStringLiteral("未连接"), core);
     m_coreStatusPill->setTone(M3Pill::Tone::Neutral);
     m_coreStatusPill->setDot(true);
     addRow(coreLayout, core, QStringLiteral("当前内核"),
-           QStringLiteral("Mihomo Meta · 随 Clash-Q 启动和退出"), QStringLiteral("dns"),
+           QStringLiteral("Mihomo Meta · 随 Nyan-Q 启动和退出"), QStringLiteral("dns"),
            m_coreStatusPill, false);
 
     m_restartCore = new M3Button(QStringLiteral("重启"), M3Button::Variant::Tonal, core);
@@ -296,7 +296,7 @@ void SettingsPage::buildUi()
     auto* aboutText = new QVBoxLayout;
     aboutText->setContentsMargins(0, 0, 0, 0);
     aboutText->setSpacing(3);
-    auto* name = new QLabel(QStringLiteral("Clash-Q %1").arg(AppPaths::appVersion()), aboutRow);
+    auto* name = new QLabel(QStringLiteral("Nyan-Q %1").arg(AppPaths::appVersion()), aboutRow);
     name->setProperty("role", "cardTitle");
     aboutText->addWidget(name);
     auto* tech = new QLabel(QStringLiteral("Material Design 3 · Qt 6.12.0 · C++20 · Mihomo"),

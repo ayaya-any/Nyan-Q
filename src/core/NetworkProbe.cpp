@@ -17,7 +17,7 @@ constexpr int kRequestTimeoutMs = 7000;
 QNetworkRequest makeRequest(const QUrl& url, const char* accept)
 {
     QNetworkRequest request(url);
-    request.setRawHeader("User-Agent", "Clash-Q/0.1");
+    request.setRawHeader("User-Agent", "Nyan-Q/0.1");
     request.setRawHeader("Accept", accept);
     request.setRawHeader("Cache-Control", "no-cache");
     request.setAttribute(QNetworkRequest::RedirectPolicyAttribute,

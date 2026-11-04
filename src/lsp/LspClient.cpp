@@ -107,7 +107,7 @@ void LspClient::start(const LspServerProfile& profile, const QString& rootPath)
         QJsonObject params{
             {QStringLiteral("processId"), static_cast<int>(QCoreApplication::applicationPid())},
             {QStringLiteral("clientInfo"),
-             QJsonObject{{QStringLiteral("name"), QStringLiteral("Clash-Q")},
+             QJsonObject{{QStringLiteral("name"), QStringLiteral("Nyan-Q")},
                          {QStringLiteral("version"), QStringLiteral("0.2")}}},
             {QStringLiteral("rootUri"), rootUri.toString(QUrl::FullyEncoded)},
             {QStringLiteral("rootPath"), QDir::toNativeSeparators(m_rootPath)},

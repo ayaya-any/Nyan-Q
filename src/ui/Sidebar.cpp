@@ -181,7 +181,7 @@ Sidebar::Sidebar(QWidget* parent)
     m_versionLabel = new QLabel(this);
     m_versionLabel->setProperty("role", "micro");
     m_versionLabel->setAlignment(Qt::AlignCenter);
-    m_versionLabel->setText(QStringLiteral("Clash-Q %1").arg(AppPaths::appVersion()));
+    m_versionLabel->setText(QStringLiteral("Nyan-Q %1").arg(AppPaths::appVersion()));
     root->addWidget(m_versionLabel);
     root->addSpacing(2);
 
@@ -268,10 +268,10 @@ void Sidebar::setCoreVersion(const QString& version)
 {
     m_coreVersion = version;
     if (version.isEmpty()) {
-        m_versionLabel->setText(QStringLiteral("Clash-Q %1").arg(AppPaths::appVersion()));
+        m_versionLabel->setText(QStringLiteral("Nyan-Q %1").arg(AppPaths::appVersion()));
     } else {
         m_versionLabel->setText(
-            QStringLiteral("Clash-Q %1 · %2").arg(AppPaths::appVersion(), version));
+            QStringLiteral("Nyan-Q %1 · %2").arg(AppPaths::appVersion(), version));
     }
 }
 

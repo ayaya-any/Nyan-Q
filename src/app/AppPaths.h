@@ -4,7 +4,7 @@
 
 namespace AppPaths {
 
-// Persistent application data. Set CLASHQ_DATA_DIR to override; a
+// Persistent application data. Set NYANQ_DATA_DIR (or the legacy CLASHQ_DATA_DIR) to override; a
 // "portable.flag" beside the executable switches to <exe>/data as well.
 QString dataDir();
 QString profilesDir();

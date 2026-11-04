@@ -125,7 +125,8 @@ bool SettingsStore::applyLaunchAtLogin(bool enabled, QString* error)
     QSettings runKey(QStringLiteral(
                          "HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run"),
                      QSettings::NativeFormat);
-    const QString appName = QStringLiteral("Clash-Q");
+    const QString appName = QStringLiteral("Nyan-Q");
+    runKey.remove(QStringLiteral("Clash-Q"));
     if (enabled) {
         const QString exe = QDir::toNativeSeparators(
             QFileInfo(QCoreApplication::applicationFilePath()).absoluteFilePath());

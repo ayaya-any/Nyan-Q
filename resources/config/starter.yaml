@@ -1,4 +1,4 @@
-# Clash-Q built-in starter configuration.
+# Nyan-Q built-in starter configuration.
 # Replace it with your own Clash/Mihomo subscription from the Profiles page.
 mixed-port: 7890
 allow-lan: false

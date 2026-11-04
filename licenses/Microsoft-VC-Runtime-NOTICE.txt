@@ -1,7 +1,7 @@
 Microsoft Visual C++ Redistributable Runtime Notice
 ====================================================
 
-Clash-Q is built with Microsoft Visual C++ and redistributes the Microsoft
+Nyan-Q is built with Microsoft Visual C++ and redistributes the Microsoft
 Visual C++ x64 runtime DLLs alongside the application so that a matching
 runtime is available without a separate installation step.
 

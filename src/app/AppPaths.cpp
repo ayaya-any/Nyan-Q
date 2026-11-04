@@ -14,7 +14,9 @@ QString defaultDataDir()
     if (!g_dataDirOverride.isEmpty())
         return QDir::cleanPath(g_dataDirOverride);
 
-    const QString fromEnv = qEnvironmentVariable("CLASHQ_DATA_DIR");
+    QString fromEnv = qEnvironmentVariable("NYANQ_DATA_DIR");
+    if (fromEnv.isEmpty())
+        fromEnv = qEnvironmentVariable("CLASHQ_DATA_DIR");
     if (!fromEnv.isEmpty())
         return QDir::cleanPath(fromEnv);
 
@@ -25,7 +27,16 @@ QString defaultDataDir()
     QString base = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
     if (base.isEmpty())
         base = QDir::homePath();
-    return QDir::cleanPath(base + QStringLiteral("/Clash-Q"));
+    const QString dataDir = QDir::cleanPath(base + QStringLiteral("/Nyan-Q"));
+    const QString legacyDir = QDir::cleanPath(base + QStringLiteral("/Clash-Q"));
+    if (!QFileInfo::exists(dataDir) && QFileInfo::exists(legacyDir)) {
+        // Preserve existing profiles, subscriptions and settings across the
+        // Clash-Q -> Nyan-Q rename. If the move fails, keep using the legacy
+        // directory instead of silently starting with an empty profile store.
+        if (!QDir().rename(legacyDir, dataDir))
+            return legacyDir;
+    }
+    return dataDir;
 }
 
 QString resolvedDataDir()
@@ -59,7 +70,7 @@ QString settingsFile()
 
 QString logFile()
 {
-    return dataDir() + QStringLiteral("/clash-q.log");
+    return dataDir() + QStringLiteral("/nyan-q.log");
 }
 
 QString runtimeConfigFile()
@@ -106,7 +117,7 @@ QString resolveCorePath(const QString& preferred)
 
 QString appVersion()
 {
-    return QStringLiteral(CLASHQ_VERSION);
+    return QStringLiteral(NYANQ_VERSION);
 }
 
 void setDataDirOverride(const QString& path)

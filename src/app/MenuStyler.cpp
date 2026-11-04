@@ -21,9 +21,9 @@ void MenuStyler::install()
 
 void MenuStyler::styleMenu(QMenu* menu)
 {
-    if (!menu || menu->property("_clashqMaterialMenu").toBool())
+    if (!menu || menu->property("_nyanqMaterialMenu").toBool())
         return;
-    menu->setProperty("_clashqMaterialMenu", true);
+    menu->setProperty("_nyanqMaterialMenu", true);
     menu->setStyleSheet(Theme::instance().menuStyle());
     menu->update();
 }

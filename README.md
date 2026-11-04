@@ -1,15 +1,15 @@
-# Clash-Q
+# Nyan-Q
 
 <div align="center">
-  <img src="docs/screenshots/app-icon.png" width="92" alt="Clash-Q icon">
-  <h1>Clash-Q</h1>
+  <img src="docs/screenshots/app-icon.png" width="92" alt="Nyan-Q icon">
+  <h1>Nyan-Q</h1>
   <p><strong>Material Design 3 · Mihomo 内核 · Qt 6.12.0 · C++20</strong></p>
   <p>一款面向 Windows 的轻量 Clash / Mihomo 桌面客户端，使用自绘 Material 组件与真实 Mihomo RESTful API。</p>
 </div>
 
 ---
 
-![Clash-Q 仪表盘](docs/screenshots/dashboard.png)
+![Nyan-Q 仪表盘](docs/screenshots/dashboard.png)
 
 ## 特性
 
@@ -26,7 +26,7 @@
 - 网络出口卡片显示 **IP、国家/地区与 ISP**；代理模式作为独立卡片放在其下方。
 - 内核卡片顶部显示可复制、可选中的本机内网 IP；下方仅保留系统代理、TUN 与
   局域网代理三个开关。
-- 内存信息卡片用实时曲线展示 **Clash-Q 与 Mihomo 的工作集内存**；服务状态卡片
+- 内存信息卡片用实时曲线展示 **Nyan-Q 与 Mihomo 的工作集内存**；服务状态卡片
   展示 GitHub / Google / YouTube 的连接延迟。
 - 活动连接卡片是实时连接列表，支持滚动和断开单条连接；配置卡片通过右上角箭头
   跳转配置页，并展示当前配置、来源、到期时间、自动更新、文件、更新时间与流量配额。
@@ -170,17 +170,17 @@ cmake --build build --config Release --parallel
 ctest --test-dir build -C Release --output-on-failure
 ```
 
-产物位于 `build\Release\Clash-Q.exe`，构建后会自动把 `mihomo.exe` 和
+产物位于 `build\Release\Nyan-Q.exe`，构建后会自动把 `mihomo.exe` 和
 `wintun.dll` 复制到同一目录。
 
 ### 运行
 
-直接运行 `build\Release\Clash-Q.exe` 需要 Qt 的 DLL 在 `PATH` 中。更推荐部署
+直接运行 `build\Release\Nyan-Q.exe` 需要 Qt 的 DLL 在 `PATH` 中。更推荐部署
 Qt 运行时：
 
 ```powershell
 cmake --build build --config Release --target deploy
-.\build\Release\Clash-Q.exe
+.\build\Release\Nyan-Q.exe
 ```
 
 或制作可分发目录/zip：
@@ -191,8 +191,8 @@ cmake --build build --config Release --target deploy
 
 生成：
 
-- `dist\Clash-Q\`：可直接运行的完整目录
-- `dist\Clash-Q-0.1.0-win64.zip`：便携分发包
+- `dist\Nyan-Q\`：可直接运行的完整目录
+- `dist\Nyan-Q-0.1.0-win64.zip`：便携分发包
 
 制作安装包需要 Inno Setup 6。仓库内提供了便携编译器
 `tools\innosetup\app\ISCC.exe`，也可以使用系统安装的 Inno Setup 6：
@@ -203,9 +203,9 @@ cmake --build build --config Release --target deploy
 
 生成：
 
-- `dist\Clash-Q-0.1.0-win64-setup.exe`：按当前用户安装的简体中文安装包
-- 安装目录默认：`%LOCALAPPDATA%\Programs\Clash-Q`
-- 卸载默认保留 `%LOCALAPPDATA%\Clash-Q` 中的配置、订阅和日志
+- `dist\Nyan-Q-0.1.0-win64-setup.exe`：按当前用户安装的简体中文安装包
+- 安装目录默认：`%LOCALAPPDATA%\Programs\Nyan-Q`
+- 卸载默认保留 `%LOCALAPPDATA%\Nyan-Q` 中的配置、订阅和日志
 
 安装包内置官方 `vc_redist.x64.exe`。安装前会检查：
 
@@ -233,7 +233,7 @@ HKLM\SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64
 7. 在 **配置** 页点击每张配置卡片右侧的铅笔图标，可直接编辑 YAML；保存后若该配置正在使用，
    会通过 Mihomo API 热重载，进程保持运行。远程订阅的手动修改会被之后的订阅更新覆盖。
 
-> 系统代理修改的是当前用户的 Windows Internet Settings；Clash-Q 会在应用退出时
+> 系统代理修改的是当前用户的 Windows Internet Settings；Nyan-Q 会在应用退出时
 > 恢复首次启用前的设置。若进程被强制结束，请手动检查“设置 → 网络和 Internet →
 > 代理”。
 
@@ -243,7 +243,7 @@ HKLM\SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64
 | --- | --- |
 | `Ctrl+1` … `Ctrl+6` | 切换仪表盘 / 代理 / 订阅 / 连接 / 规则 / 日志 |
 | `Ctrl+7` 或 `Ctrl+,` | 打开设置 |
-| `Ctrl+Q` | 退出 Clash-Q |
+| `Ctrl+Q` | 退出 Nyan-Q |
 | 编辑器内 `Ctrl+S` | 保存并应用配置 |
 | 编辑器内 `Ctrl+F` / `Ctrl+H` | 查找 / 查找替换 |
 | 编辑器内 `F3` / `Shift+F3` | 下一个 / 上一个匹配 |
@@ -258,16 +258,18 @@ HKLM\SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64
 默认数据目录：
 
 ```text
-%LOCALAPPDATA%\Clash-Q\
+%LOCALAPPDATA%\Nyan-Q\
 ```
+
+首次启动时，如果新目录不存在而旧 `%LOCALAPPDATA%\Clash-Q` 目录存在，会自动把旧配置、订阅和日志迁移到 Nyan-Q 目录。
 
 结构：
 
 ```text
-Clash-Q/
+Nyan-Q/
 ├─ settings.ini            应用设置（端口、主题、行为、控制器密钥）
 ├─ instance.lock            单实例锁
-├─ clash-q.log              应用与内核日志（启动时轮转）
+├─ nyan-q.log              应用与内核日志（启动时轮转）
 ├─ profiles/
 │  ├─ profiles.json         订阅元数据、激活项
 │  └─ profile-*.yaml        原始订阅 / 本地配置快照
@@ -277,12 +279,12 @@ Clash-Q/
 └─ ...
 ```
 
-便携模式：在 `Clash-Q.exe` 同目录放入空文件 `portable.flag`，数据目录改为
+便携模式：在 `Nyan-Q.exe` 同目录放入空文件 `portable.flag`，数据目录改为
 `.\data`。也可以用环境变量覆盖：
 
 ```powershell
-$env:CLASHQ_DATA_DIR = "D:\ClashQData"
-.\Clash-Q.exe
+$env:NYANQ_DATA_DIR = "D:\NyanQData"
+.\Nyan-Q.exe
 ```
 
 ## 安全设计
@@ -291,7 +293,7 @@ $env:CLASHQ_DATA_DIR = "D:\ClashQData"
   每次请求通过 `Authorization: Bearer <secret>` 发送；外部控制器只监听
   `127.0.0.1`。
 - **运行时配置净化**：订阅中的 `external-controller`、`secret`、端口、
-  `allow-lan`、`mode`、`tun` 等顶层字段会被 Clash-Q 重写，避免订阅远程
+  `allow-lan`、`mode`、`tun` 等顶层字段会被 Nyan-Q 重写，避免订阅远程
   暴露控制器或改变本地端口。
 - **系统代理恢复**：启动前捕获当前用户代理设置，关闭/退出时恢复；不修改
   机器级设置，不需要管理员权限。
@@ -348,7 +350,7 @@ Mihomo 的 REST API 没有 `shutdown` 接口；`/restart` 会在清理后启动�
 并不等于停止。Mihomo 官方的优雅退出路径是主循环中的 `SIGINT` / `SIGTERM`，退出时会输出
 `Mihomo shutting down` 并调用 `executor.Shutdown()` 清理监听器、TUN 路由和 fake-ip 状态。
 
-Windows 下 Clash-Q 使用隐藏控制台 + `CREATE_NEW_PROCESS_GROUP` 启动内核；停止时向内核
+Windows 下 Nyan-Q 使用隐藏控制台 + `CREATE_NEW_PROCESS_GROUP` 启动内核；停止时向内核
 进程组发送 `CTRL_BREAK_EVENT`。Go runtime 将其转换为中断信号，从而触发完整的优雅清理。
 只有 6 秒内仍未退出时才回退为强制结束。因此日志中正常情况下应看到：
 
@@ -383,7 +385,7 @@ resources/              字体、图标、内置配置、qrc
 不启动真实内核，展示完整 UI 与模拟数据：
 
 ```powershell
-.\build\Release\Clash-Q.exe --demo
+.\build\Release\Nyan-Q.exe --demo
 ```
 
 ### 截图
@@ -391,9 +393,9 @@ resources/              字体、图标、内置配置、qrc
 以演示模式启动，等待渲染完成后保存窗口截图并退出：
 
 ```powershell
-.\build\Release\Clash-Q.exe --demo --screenshot .\docs\screenshots\dashboard.png --page dashboard
-.\build\Release\Clash-Q.exe --demo --theme light --screenshot .\docs\screenshots\dashboard-light.png
-.\build\Release\Clash-Q.exe --screenshot-editor .\docs\screenshots\config-editor.png
+.\build\Release\Nyan-Q.exe --demo --screenshot .\docs\screenshots\dashboard.png --page dashboard
+.\build\Release\Nyan-Q.exe --demo --theme light --screenshot .\docs\screenshots\dashboard-light.png
+.\build\Release\Nyan-Q.exe --screenshot-editor .\docs\screenshots\config-editor.png
 ```
 
 支持页面：`dashboard`、`proxies`、`profiles`、`connections`、`rules`、`logs`、
@@ -414,7 +416,7 @@ resources/              字体、图标、内置配置、qrc
 - 进程能正常停止。
 
 ```powershell
-.\build\Release\Clash-Q.exe --smoke-test
+.\build\Release\Nyan-Q.exe --smoke-test
 ```
 
 冒烟测试不会创建主窗口，因此无需设置 `QT_QPA_PLATFORM`。如果部署目录只包含

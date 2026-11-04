@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(ClashQ VERSION 0.1.0 LANGUAGES CXX)
+project(Nyan-Q VERSION 0.1.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -16,7 +16,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 find_package(Qt6 6.12 REQUIRED COMPONENTS Core Gui Widgets Network)
 qt_standard_project_setup(REQUIRES 6.12)
 
-set(CLASHQ_SOURCES
+set(NYANQ_SOURCES
     src/main.cpp
 
     src/app/AppPaths.cpp
@@ -74,39 +74,39 @@ set(CLASHQ_SOURCES
     resources/resources.qrc
 )
 
-file(GLOB_RECURSE CLASHQ_HEADERS CONFIGURE_DEPENDS
+file(GLOB_RECURSE NYANQ_HEADERS CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.h")
 
-qt_add_executable(ClashQ WIN32 ${CLASHQ_SOURCES} ${CLASHQ_HEADERS})
-set_target_properties(ClashQ PROPERTIES OUTPUT_NAME "Clash-Q")
+qt_add_executable(NyanQ WIN32 ${NYANQ_SOURCES} ${NYANQ_HEADERS})
+set_target_properties(NyanQ PROPERTIES OUTPUT_NAME "Nyan-Q")
 
-target_include_directories(ClashQ PRIVATE
+target_include_directories(NyanQ PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/src/core
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui
 )
 
-target_link_libraries(ClashQ PRIVATE
+target_link_libraries(NyanQ PRIVATE
     Qt6::Core
     Qt6::Gui
     Qt6::Widgets
     Qt6::Network
 )
 
-target_compile_definitions(ClashQ PRIVATE
-    CLASHQ_VERSION="${PROJECT_VERSION}"
+target_compile_definitions(NyanQ PRIVATE
+    NYANQ_VERSION="${PROJECT_VERSION}"
     WIN32_LEAN_AND_MEAN
     NOMINMAX
 )
 
 if(MSVC)
-    target_compile_options(ClashQ PRIVATE /utf-8 /W3 /permissive- /Zc:__cplusplus)
+    target_compile_options(NyanQ PRIVATE /utf-8 /W3 /permissive- /Zc:__cplusplus)
 endif()
 
 if(WIN32)
-    target_link_libraries(ClashQ PRIVATE dwmapi wininet shell32 advapi32 psapi)
+    target_link_libraries(NyanQ PRIVATE dwmapi wininet shell32 advapi32 psapi)
     configure_file(resources/app.rc.in ${CMAKE_CURRENT_BINARY_DIR}/app.rc @ONLY)
-    target_sources(ClashQ PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/app.rc)
+    target_sources(NyanQ PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/app.rc)
 endif()
 
 # Ship the Mihomo core beside the executable. It is an external process and
@@ -114,20 +114,20 @@ endif()
 set(MIHOMO_BINARY "${CMAKE_CURRENT_SOURCE_DIR}/third_party/mihomo/mihomo.exe")
 set(WINTUN_BINARY "${CMAKE_CURRENT_SOURCE_DIR}/third_party/mihomo/wintun.dll")
 if(EXISTS "${MIHOMO_BINARY}")
-    add_custom_command(TARGET ClashQ POST_BUILD
+    add_custom_command(TARGET NyanQ POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "${MIHOMO_BINARY}" "$<TARGET_FILE_DIR:ClashQ>/mihomo.exe"
+                "${MIHOMO_BINARY}" "$<TARGET_FILE_DIR:NyanQ>/mihomo.exe"
         COMMAND ${CMAKE_COMMAND} -E make_directory
-                "$<TARGET_FILE_DIR:ClashQ>/lsp"
+                "$<TARGET_FILE_DIR:NyanQ>/lsp"
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
                 "${CMAKE_CURRENT_SOURCE_DIR}/resources/clash-config.schema.json"
-                "$<TARGET_FILE_DIR:ClashQ>/lsp/clash-config.schema.json"
+                "$<TARGET_FILE_DIR:NyanQ>/lsp/clash-config.schema.json"
         COMMENT "Bundling Mihomo core"
         VERBATIM)
     if(EXISTS "${WINTUN_BINARY}")
-        add_custom_command(TARGET ClashQ POST_BUILD
+        add_custom_command(TARGET NyanQ POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                    "${WINTUN_BINARY}" "$<TARGET_FILE_DIR:ClashQ>/wintun.dll"
+                    "${WINTUN_BINARY}" "$<TARGET_FILE_DIR:NyanQ>/wintun.dll"
             COMMENT "Bundling Wintun TUN driver"
             VERBATIM)
     endif()
@@ -135,7 +135,7 @@ else()
     message(WARNING "Mihomo core not found at ${MIHOMO_BINARY}; runtime will require a core path in Settings.")
 endif()
 
-install(TARGETS ClashQ RUNTIME DESTINATION .)
+install(TARGETS NyanQ RUNTIME DESTINATION .)
 if(EXISTS "${MIHOMO_BINARY}")
     install(FILES "${MIHOMO_BINARY}" DESTINATION .)
 endif()
@@ -158,9 +158,9 @@ find_program(WINDEPLOYQT_EXECUTABLE windeployqt HINTS "${QT6_INSTALL_PREFIX}/bin
 if(WINDEPLOYQT_EXECUTABLE)
     add_custom_target(deploy
         COMMAND "${WINDEPLOYQT_EXECUTABLE}" --release --no-translations --no-opengl-sw
-                --compiler-runtime --dir "$<TARGET_FILE_DIR:ClashQ>" "$<TARGET_FILE:ClashQ>"
-        DEPENDS ClashQ
-        COMMENT "Deploying Qt runtime beside Clash-Q.exe"
+                --compiler-runtime --dir "$<TARGET_FILE_DIR:NyanQ>" "$<TARGET_FILE:NyanQ>"
+        DEPENDS NyanQ
+        COMMENT "Deploying Qt runtime beside Nyan-Q.exe"
         VERBATIM)
 endif()
 

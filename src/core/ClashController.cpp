@@ -282,7 +282,7 @@ void ClashController::initialize(bool demo, bool ephemeral)
     } else {
         updateMemoryUsage();
         log(cq::LogLevel::Info,
-            QStringLiteral("Clash-Q %1 已启动 · 数据目录 %2")
+            QStringLiteral("Nyan-Q %1 已启动 · 数据目录 %2")
                 .arg(AppPaths::appVersion(), QDir::toNativeSeparators(AppPaths::dataDir())));
     }
     m_initialized = true;

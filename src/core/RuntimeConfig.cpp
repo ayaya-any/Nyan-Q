@@ -142,7 +142,7 @@ QString build(const QString& source, const cq::AppSettings& settings)
 
     QStringList generated;
     generated << QString();
-    generated << QStringLiteral("# ---- Clash-Q managed runtime settings ----");
+    generated << QStringLiteral("# ---- Nyan-Q managed runtime settings ----");
     generated << QStringLiteral("mixed-port: %1").arg(settings.mixedPort);
     generated << QStringLiteral("allow-lan: %1").arg(settings.allowLan ? QStringLiteral("true")
                                                                        : QStringLiteral("false"));

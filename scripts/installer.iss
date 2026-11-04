@@ -1,4 +1,4 @@
-﻿; Clash-Q Inno Setup script.
+﻿; Nyan-Q Inno Setup script.
 ; Build with:
 ;   ISCC.exe /DAppVersion=0.1.0 /DPayloadDir=... /DOutputDir=... /DVCRedistPath=... installer.iss
 
@@ -6,7 +6,7 @@
   #define AppVersion "0.1.0"
 #endif
 #ifndef PayloadDir
-  #define PayloadDir "..\dist\Clash-Q"
+  #define PayloadDir "..\dist\Nyan-Q"
 #endif
 #ifndef OutputDir
   #define OutputDir "..\dist"
@@ -16,13 +16,13 @@
 #endif
 
 [Setup]
-AppId={{8E2D1F2A-0C7A-4C55-9E69-6C2D6C2A4F71}
-AppName=Clash-Q
+AppId={{C3F4A2B8-7D61-4E2A-9B3C-5E8A1D7B4C92}
+AppName=Nyan-Q
 AppVersion={#AppVersion}
-AppVerName=Clash-Q {#AppVersion}
-AppPublisher=Clash-Q contributors
-DefaultDirName={localappdata}\Programs\Clash-Q
-DefaultGroupName=Clash-Q
+AppVerName=Nyan-Q {#AppVersion}
+AppPublisher=Nyan-Q contributors
+DefaultDirName={localappdata}\Programs\Nyan-Q
+DefaultGroupName=Nyan-Q
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
 ArchitecturesAllowed=x64
@@ -30,9 +30,9 @@ ArchitecturesInstallIn64BitMode=x64
 MinVersion=10.0
 LicenseFile=..\LICENSE
 OutputDir={#OutputDir}
-OutputBaseFilename=Clash-Q-{#AppVersion}-win64-setup
+OutputBaseFilename=Nyan-Q-{#AppVersion}-win64-setup
 SetupIconFile=..\resources\icons\app.ico
-UninstallDisplayIcon={app}\Clash-Q.exe
+UninstallDisplayIcon={app}\Nyan-Q.exe
 Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
@@ -60,11 +60,11 @@ Source: "{#PayloadDir}\*"; DestDir: "{app}"; \
 Source: "{#VCRedistPath}"; DestDir: "{tmp}"; Flags: dontcopy
 
 [Icons]
-Name: "{group}\Clash-Q"; Filename: "{app}\Clash-Q.exe"
-Name: "{autodesktop}\Clash-Q"; Filename: "{app}\Clash-Q.exe"; Tasks: desktopicon
+Name: "{group}\Nyan-Q"; Filename: "{app}\Nyan-Q.exe"
+Name: "{autodesktop}\Nyan-Q"; Filename: "{app}\Nyan-Q.exe"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\Clash-Q.exe"; Description: "启动 Clash-Q"; \
+Filename: "{app}\Nyan-Q.exe"; Description: "启动 Nyan-Q"; \
     Flags: nowait postinstall skipifsilent
 
 [Code]

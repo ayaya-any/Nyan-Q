@@ -143,7 +143,7 @@ MainWindow::MainWindow(ClashController* controller, QWidget* parent)
     setAttribute(Qt::WA_DeleteOnClose, false);
     setMinimumSize(1100, 720);
     resize(1360, 860);
-    setWindowTitle(QStringLiteral("Clash-Q"));
+    setWindowTitle(QStringLiteral("Nyan-Q"));
     setWindowIcon(Theme::instance().appIcon());
 
     buildUi();
@@ -269,7 +269,7 @@ void MainWindow::wire()
             [this](const QString& message, bool error) {
                 m_snackbar->showMessage(message, error);
                 if (error && !isVisible() && m_tray)
-                    m_tray->showMessage(QStringLiteral("Clash-Q"), message.left(180),
+                    m_tray->showMessage(QStringLiteral("Nyan-Q"), message.left(180),
                                         QSystemTrayIcon::Warning, 3500);
             });
 }
@@ -356,10 +356,10 @@ void MainWindow::setupTray()
         return;
 
     m_tray = new QSystemTrayIcon(Theme::instance().appIcon(), this);
-    m_tray->setToolTip(QStringLiteral("Clash-Q"));
+    m_tray->setToolTip(QStringLiteral("Nyan-Q"));
     m_trayMenu = new QMenu(this);
 
-    auto* showAction = m_trayMenu->addAction(QStringLiteral("打开 Clash-Q"));
+    auto* showAction = m_trayMenu->addAction(QStringLiteral("打开 Nyan-Q"));
     m_trayMenu->addSeparator();
 
     auto* modeMenu = m_trayMenu->addMenu(QStringLiteral("代理模式"));
@@ -380,7 +380,7 @@ void MainWindow::setupTray()
     m_trayTun->setCheckable(true);
 
     m_trayMenu->addSeparator();
-    auto* quitAction = m_trayMenu->addAction(QStringLiteral("退出 Clash-Q"));
+    auto* quitAction = m_trayMenu->addAction(QStringLiteral("退出 Nyan-Q"));
     m_tray->setContextMenu(m_trayMenu);
 
     connect(showAction, &QAction::triggered, this, &MainWindow::showFromTray);
@@ -475,7 +475,7 @@ void MainWindow::updateWindowStatus()
     m_sidebar->setCoreVersion(m_controller->coreVersion());
     m_sidebar->setActiveProfileName(m_controller->activeProfileName());
     m_sidebar->setStats(m_controller->stats());
-    setWindowTitle(QStringLiteral("Clash-Q · %1").arg(stateLabel(state)));
+    setWindowTitle(QStringLiteral("Nyan-Q · %1").arg(stateLabel(state)));
     updateTrayState();
 }
 
@@ -504,7 +504,7 @@ void MainWindow::updateTrayTooltip()
     if (!m_tray)
         return;
     const cq::SessionStats stats = m_controller->stats();
-    QString tooltip = QStringLiteral("Clash-Q · %1").arg(stateLabel(m_controller->state()));
+    QString tooltip = QStringLiteral("Nyan-Q · %1").arg(stateLabel(m_controller->state()));
     if (m_controller->state() == cq::CoreState::Running) {
         tooltip += QStringLiteral("\n%1  ·  下载 %2  上传 %3")
                        .arg(m_controller->activeProfileName(),
@@ -529,8 +529,8 @@ void MainWindow::closeEvent(QCloseEvent* event)
         event->ignore();
         hide();
         if (!m_trayHintShown) {
-            m_tray->showMessage(QStringLiteral("Clash-Q"),
-                                QStringLiteral("主窗口已隐藏，Clash-Q 会继续在后台保护网络。"),
+            m_tray->showMessage(QStringLiteral("Nyan-Q"),
+                                QStringLiteral("主窗口已隐藏，Nyan-Q 会继续在后台保护网络。"),
                                 QSystemTrayIcon::Information, 3000);
             m_trayHintShown = true;
         }

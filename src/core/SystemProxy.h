@@ -18,7 +18,7 @@ public:
     bool appliedByUs() const { return m_applied; }
     int port() const { return m_port; }
 
-    // Restores the values that existed before Clash-Q first changed them.
+    // Restores the values that existed before Nyan-Q first changed them.
     void restoreOriginal();
 
 signals:

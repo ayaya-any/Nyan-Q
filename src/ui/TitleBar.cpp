@@ -29,7 +29,7 @@ TitleBar::TitleBar(QWidget* parent)
     brandMark->setAttribute(Qt::WA_TransparentForMouseEvents, true);
     layout->addWidget(brandMark, 0, Qt::AlignVCenter);
 
-    auto* brand = new QLabel(QStringLiteral("Clash-Q"), this);
+    auto* brand = new QLabel(QStringLiteral("Nyan-Q"), this);
     QFont brandFont = Fonts::text(15, QFont::Bold);
     brand->setFont(brandFont);
     brand->setAttribute(Qt::WA_TransparentForMouseEvents, true);

@@ -1,7 +1,7 @@
 #requires -Version 5.1
 <#
 .SYNOPSIS
-    Builds, tests and packages Clash-Q for Windows x64.
+    Builds, tests and packages Nyan-Q for Windows x64.
 
 .EXAMPLE
     .\scripts\package.ps1 -QtDir "D:\Qt\6.12.0\msvc2022_64"
@@ -22,12 +22,12 @@ if ([string]::IsNullOrWhiteSpace($BuildDir)) {
 }
 $BuildDir = [System.IO.Path]::GetFullPath($BuildDir)
 $DistRoot = Join-Path $Root "dist"
-$OutDir = Join-Path $DistRoot "Clash-Q"
+$OutDir = Join-Path $DistRoot "Nyan-Q"
 $versionMatch = Select-String -Path (Join-Path $Root "CMakeLists.txt") `
-    -Pattern "project\(ClashQ VERSION ([0-9]+\.[0-9]+\.[0-9]+)"
+    -Pattern "project\(Nyan-Q VERSION ([0-9]+\.[0-9]+\.[0-9]+)"
 if (-not $versionMatch) { throw "Could not determine project version from CMakeLists.txt." }
 $Version = $versionMatch.Matches[0].Groups[1].Value
-$ZipPath = Join-Path $DistRoot "Clash-Q-$Version-win64.zip"
+$ZipPath = Join-Path $DistRoot "Nyan-Q-$Version-win64.zip"
 
 if (-not (Test-Path (Join-Path $QtDir "bin\windeployqt.exe"))) {
     throw "Qt 6.12.0 not found at '$QtDir'. Pass -QtDir <path-to-msvc2022_64>."
@@ -96,7 +96,7 @@ function Find-VisualStudio {
 
 $CMake = Resolve-CMake
 $CTest = Join-Path (Split-Path $CMake -Parent) "ctest.exe"
-$BuildApp = Join-Path $BuildDir "Release\Clash-Q.exe"
+$BuildApp = Join-Path $BuildDir "Release\Nyan-Q.exe"
 $VSInstall = Find-VisualStudio
 if ($VSInstall) {
     $env:VCINSTALLDIR = Join-Path $VSInstall "VC\"
@@ -105,20 +105,20 @@ if ($VSInstall) {
 }
 
 Write-Host ""
-Write-Host "== Clash-Q / configure ==" -ForegroundColor Cyan
+Write-Host "== Nyan-Q / configure ==" -ForegroundColor Cyan
 & $CMake -S $Root -B $BuildDir -G "Visual Studio 17 2022" -A x64 `
     -DCMAKE_PREFIX_PATH="$QtDir" -DBUILD_TESTING=ON
 if ($LASTEXITCODE -ne 0) { throw "CMake configure failed." }
 
 Write-Host ""
-Write-Host "== Clash-Q / build ==" -ForegroundColor Cyan
+Write-Host "== Nyan-Q / build ==" -ForegroundColor Cyan
 $jobs = if ($env:NUMBER_OF_PROCESSORS) { [int]$env:NUMBER_OF_PROCESSORS } else { 8 }
 & $CMake --build $BuildDir --config Release --parallel $jobs
 if ($LASTEXITCODE -ne 0) { throw "Build failed." }
 
 if (-not $SkipTests) {
     Write-Host ""
-    Write-Host "== Clash-Q / tests ==" -ForegroundColor Cyan
+    Write-Host "== Nyan-Q / tests ==" -ForegroundColor Cyan
     & $CTest --test-dir $BuildDir -C Release --output-on-failure
     if ($LASTEXITCODE -ne 0) { throw "Tests failed." }
 }
@@ -126,7 +126,7 @@ if (-not $SkipTests) {
 if (-not (Test-Path $BuildApp)) { throw "Build output not found: $BuildApp" }
 
 Write-Host ""
-Write-Host "== Clash-Q / package ==" -ForegroundColor Cyan
+Write-Host "== Nyan-Q / package ==" -ForegroundColor Cyan
 if (-not $OutDir.StartsWith($DistRoot + [System.IO.Path]::DirectorySeparatorChar,
         [System.StringComparison]::OrdinalIgnoreCase)) {
     throw "Refusing to clean an unexpected path: $OutDir"
@@ -134,7 +134,7 @@ if (-not $OutDir.StartsWith($DistRoot + [System.IO.Path]::DirectorySeparatorChar
 if (Test-Path $OutDir) { Remove-Item -LiteralPath $OutDir -Recurse -Force }
 New-Item -ItemType Directory -Path $OutDir -Force | Out-Null
 
-Copy-Item $BuildApp (Join-Path $OutDir "Clash-Q.exe") -Force
+Copy-Item $BuildApp (Join-Path $OutDir "Nyan-Q.exe") -Force
 Copy-Item (Join-Path $Root "third_party\mihomo\mihomo.exe") $OutDir -Force
 Copy-Item (Join-Path $Root "third_party\mihomo\wintun.dll") $OutDir -Force
 Copy-Item (Join-Path $Root "README.md") $OutDir -Force
@@ -174,8 +174,8 @@ if (Test-Path (Join-Path $LspSource "node_modules\yaml-language-server\out\src\s
             -Force
     }
     @"
-YAML Language Server is bundled for the Clash-Q configuration editor.
-It is started by Clash-Q as a stdio LSP server; it is not linked into the app.
+YAML Language Server is bundled for the Nyan-Q configuration editor.
+It is started by Nyan-Q as a stdio LSP server; it is not linked into the app.
 See licenses/Yaml-Language-Server-LICENSE.txt and THIRD_PARTY_NOTICES.md.
 "@ | Set-Content -LiteralPath (Join-Path $LspOut "README.txt") -Encoding UTF8
 }
@@ -183,7 +183,7 @@ See licenses/Yaml-Language-Server-LICENSE.txt and THIRD_PARTY_NOTICES.md.
 $WinDeployQt = Join-Path $QtDir "bin\windeployqt.exe"
 Write-Host "Deploying Qt runtime from $QtDir" -ForegroundColor DarkGray
 & $WinDeployQt --release --no-translations --no-opengl-sw --compiler-runtime `
-    --dir $OutDir (Join-Path $OutDir "Clash-Q.exe")
+    --dir $OutDir (Join-Path $OutDir "Nyan-Q.exe")
 if ($LASTEXITCODE -ne 0) { throw "windeployqt failed." }
 
 # windeployqt only finds the VC redist when VCINSTALLDIR is available. Copy
@@ -218,7 +218,7 @@ $preview = Join-Path $OutDir "package-check.png"
 try {
     if (Test-Path $preview) { Remove-Item -LiteralPath $preview -Force }
     $env:Path = "$env:SystemRoot\System32;$env:SystemRoot"
-    $process = Start-Process -FilePath (Join-Path $OutDir "Clash-Q.exe") `
+    $process = Start-Process -FilePath (Join-Path $OutDir "Nyan-Q.exe") `
         -ArgumentList @("--demo", "--screenshot", "`"$preview`"", "--page", "dashboard") `
         -Wait -PassThru
     if ($process.ExitCode -ne 0 -or -not (Test-Path $preview)) {
@@ -226,7 +226,7 @@ try {
     }
 
     $editorPreview = Join-Path $OutDir "package-editor-check.png"
-    $editorProcess = Start-Process -FilePath (Join-Path $OutDir "Clash-Q.exe") `
+    $editorProcess = Start-Process -FilePath (Join-Path $OutDir "Nyan-Q.exe") `
         -ArgumentList @("--screenshot-editor", "`"$editorPreview`"") `
         -Wait -PassThru
     if ($editorProcess.ExitCode -ne 0 -or -not (Test-Path $editorPreview)) {
@@ -250,13 +250,13 @@ Write-Host "  $ZipPath ($sizeMb MB)"
 
 if ($Installer) {
     Write-Host ""
-    Write-Host "== Clash-Q / installer ==" -ForegroundColor Cyan
+    Write-Host "== Nyan-Q / installer ==" -ForegroundColor Cyan
     $Iscc = Resolve-Iscc
     $VCRedist = Join-Path $Root "third_party\vcredist\vc_redist.x64.exe"
     if (-not (Test-Path $VCRedist)) {
         throw "VC++ redistributable not found: $VCRedist"
     }
-    $SetupPath = Join-Path $DistRoot "Clash-Q-$Version-win64-setup.exe"
+    $SetupPath = Join-Path $DistRoot "Nyan-Q-$Version-win64-setup.exe"
     if (Test-Path $SetupPath) { Remove-Item -LiteralPath $SetupPath -Force }
     & $Iscc "/DAppVersion=$Version" "/DPayloadDir=$OutDir" `
         "/DOutputDir=$DistRoot" "/DVCRedistPath=$VCRedist" `

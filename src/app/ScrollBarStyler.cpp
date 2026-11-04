@@ -22,9 +22,9 @@ void ScrollBarStyler::install()
 
 void ScrollBarStyler::styleBar(QScrollBar* bar)
 {
-    if (!bar || bar->property("_clashqMaterialScroll").toBool())
+    if (!bar || bar->property("_nyanqMaterialScroll").toBool())
         return;
-    bar->setProperty("_clashqMaterialScroll", true);
+    bar->setProperty("_nyanqMaterialScroll", true);
     bar->setStyleSheet(Theme::instance().scrollBarStyle());
     bar->update();
 }

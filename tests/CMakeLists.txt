@@ -6,7 +6,7 @@ endif()
 
 find_package(Qt6 6.12 REQUIRED COMPONENTS Test)
 
-function(clashq_add_test name)
+function(nyanq_add_test name)
     cmake_parse_arguments(TEST "" "" "SOURCES;LIBS" ${ARGN})
     qt_add_executable(${name} ${TEST_SOURCES})
     target_include_directories(${name} PRIVATE
@@ -22,21 +22,21 @@ function(clashq_add_test name)
     endif()
 endfunction()
 
-clashq_add_test(test_runtime_config
+nyanq_add_test(test_runtime_config
     SOURCES
         test_runtime_config.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/core/RuntimeConfig.cpp
     LIBS Qt6::Core
 )
 
-clashq_add_test(test_api_parsers
+nyanq_add_test(test_api_parsers
     SOURCES
         test_api_parsers.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/core/MihomoApi.cpp
     LIBS Qt6::Network
 )
 
-clashq_add_test(test_profile_store
+nyanq_add_test(test_profile_store
     SOURCES
         test_profile_store.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/core/ProfileStore.cpp

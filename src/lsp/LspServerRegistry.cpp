@@ -31,6 +31,7 @@ QString findBundledServer()
         QDir(app).filePath(QStringLiteral(
             "../../../tools/yaml-language-server/node_modules/yaml-language-server/out/src/"
             "server.js")),
+        qEnvironmentVariable("NYANQ_YAML_LSP_SERVER"),
         qEnvironmentVariable("CLASHQ_YAML_LSP_SERVER"),
     };
     for (const QString& candidate : candidates) {
@@ -78,7 +79,7 @@ LspServerProfile yamlProfile()
     };
 
     // A bundled schema makes schema-driven completion and diagnostics work
-    // for Clash/Mihomo keys without embedding any language logic in Clash-Q.
+    // for Clash/Mihomo keys without embedding any language logic in Nyan-Q.
     const QString schema = QDir(QCoreApplication::applicationDirPath())
                                .filePath(QStringLiteral("lsp/clash-config.schema.json"));
     if (QFileInfo::exists(schema)) {

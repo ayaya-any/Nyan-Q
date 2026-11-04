@@ -34,7 +34,7 @@ void LogsPage::buildUi()
     root->setSpacing(14);
 
     m_header = new PageHeader(QStringLiteral("日志"),
-                              QStringLiteral("Mihomo 核心与 Clash-Q 的运行记录。"), this);
+                              QStringLiteral("Mihomo 核心与 Nyan-Q 的运行记录。"), this);
     root->addWidget(m_header);
 
     auto* card = new M3Card(this, 20);
