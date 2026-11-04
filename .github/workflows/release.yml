@@ -1,0 +1,154 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v[0-9]*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build and publish Windows x64 release
+    runs-on: windows-2022
+    timeout-minutes: 90
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate tag and project version
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $tag = $env:GITHUB_REF_NAME
+          $cmake = Get-Content CMakeLists.txt -Raw
+          if ($cmake -notmatch 'project\(Nyan-Q VERSION ([0-9]+\.[0-9]+\.[0-9]+)') {
+              throw "Unable to read the project version from CMakeLists.txt."
+          }
+          $version = $Matches[1]
+          if ($tag -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+$' -or $tag -ne "v$version") {
+              throw "Tag $tag does not match project version v$version."
+          }
+
+          $previous = ""
+          $previousOutput = & git describe --tags --abbrev=0 "$tag^" 2>$null
+          if ($LASTEXITCODE -eq 0 -and $previousOutput) {
+              $previous = $previousOutput.Trim()
+          }
+
+          "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "TAG=$tag" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "PREVIOUS_TAG=$previous" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "Tag: $tag"
+          Write-Host "Version: $version"
+          Write-Host "Previous tag: $previous"
+
+      - name: Install Qt
+        id: qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: "6.12.0"
+          arch: "win64_msvc2022_64"
+          cache: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Resolve Qt directory
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $qt = "${{ steps.qt.outputs.qt-root-dir }}"
+          if ([string]::IsNullOrWhiteSpace($qt)) {
+              $qt = $env:QT_ROOT_DIR
+          }
+          if ([string]::IsNullOrWhiteSpace($qt)) {
+              $qt = "C:\Qt\6.12.0\msvc2022_64"
+          }
+          if (-not (Test-Path (Join-Path $qt "bin\windeployqt.exe"))) {
+              throw "Qt was not found at: $qt"
+          }
+          "QT_DIR=$qt" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "Qt directory: $qt"
+
+      - name: Build, test and package
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          .\scripts\package.ps1 -QtDir $env:QT_DIR -Installer
+
+      - name: Generate checksums and release notes
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $assets = @(
+              (Join-Path $env:GITHUB_WORKSPACE "dist\Nyan-Q-$env:VERSION-win64.zip"),
+              (Join-Path $env:GITHUB_WORKSPACE "dist\Nyan-Q-$env:VERSION-win64-setup.exe")
+          )
+          foreach ($asset in $assets) {
+              if (-not (Test-Path -LiteralPath $asset)) {
+                  throw "Expected release asset not found: $asset"
+              }
+          }
+
+          .\scripts\release-notes.ps1 `
+              -Tag $env:TAG `
+              -Version $env:VERSION `
+              -PreviousTag $env:PREVIOUS_TAG `
+              -Assets $assets `
+              -ChecksumsFile "dist\SHA256SUMS.txt" `
+              -OutputFile "dist\release-notes.md" `
+              -Repository $env:GITHUB_REPOSITORY
+
+          Get-Content "dist\release-notes.md"
+
+      - name: Upload workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nyan-Q-${{ env.TAG }}
+          path: |
+            dist/Nyan-Q-*-win64.zip
+            dist/Nyan-Q-*-win64-setup.exe
+            dist/SHA256SUMS.txt
+            dist/release-notes.md
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Publish GitHub release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $tag = $env:TAG
+          $assets = @(
+              "dist\Nyan-Q-$env:VERSION-win64.zip",
+              "dist\Nyan-Q-$env:VERSION-win64-setup.exe",
+              "dist\SHA256SUMS.txt"
+          )
+
+          $exists = $false
+          gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -eq 0) {
+              $exists = $true
+          }
+
+          if ($exists) {
+              gh release upload $tag @assets --clobber --repo $env:GITHUB_REPOSITORY
+              if ($LASTEXITCODE -ne 0) { throw "Failed to upload release assets." }
+              gh release edit $tag --title "Nyan-Q $tag" --notes-file "dist\release-notes.md" --repo $env:GITHUB_REPOSITORY
+              if ($LASTEXITCODE -ne 0) { throw "Failed to update the GitHub release." }
+          } else {
+              gh release create $tag @assets --verify-tag --title "Nyan-Q $tag" --notes-file "dist\release-notes.md" --repo $env:GITHUB_REPOSITORY
+              if ($LASTEXITCODE -ne 0) { throw "Failed to create the GitHub release." }
+          }

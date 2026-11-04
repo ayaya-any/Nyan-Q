@@ -73,6 +73,15 @@ build\Release\Nyan-Q.exe
 - 安装前检测并安装所需的 MSVC x64 运行库
 - 卸载默认保留 `%LOCALAPPDATA%\Nyan-Q` 中的配置和订阅
 
+### 发布
+
+推送 `v*` 标签会触发 GitHub Actions 发布流程：
+
+- 校验标签与 CMake 项目版本一致
+- 构建并测试 Windows x64 版本
+- 生成便携包、简体中文安装包和 SHA-256 校验文件
+- 自动创建 GitHub Release，并附带构建信息和提交记录
+
 ## 使用
 
 1. 打开 **订阅**，导入订阅链接或本地 YAML 文件。
