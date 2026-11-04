@@ -1,6 +1,12 @@
 name: Release
 
 on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to build and publish
+        required: true
+        type: string
   push:
     tags:
       - "v[0-9]*"
@@ -9,7 +15,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-${{ inputs.tag || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
@@ -23,12 +29,15 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Validate tag and project version
         shell: pwsh
+        env:
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           $ErrorActionPreference = "Stop"
-          $tag = $env:GITHUB_REF_NAME
+          $tag = $env:RELEASE_TAG
           $cmake = Get-Content CMakeLists.txt -Raw
           if ($cmake -notmatch 'project\(Nyan-Q VERSION ([0-9]+\.[0-9]+\.[0-9]+)') {
               throw "Unable to read the project version from CMakeLists.txt."
@@ -36,6 +45,10 @@ jobs:
           $version = $Matches[1]
           if ($tag -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+$' -or $tag -ne "v$version") {
               throw "Tag $tag does not match project version v$version."
+          }
+          $tagCommit = & git rev-parse --verify "refs/tags/$tag^{commit}"
+          if ($LASTEXITCODE -ne 0 -or $tagCommit -ne (& git rev-parse HEAD)) {
+              throw "The checked out commit does not match release tag $tag."
           }
 
           $previous = ""
@@ -52,41 +65,57 @@ jobs:
           Write-Host "Version: $version"
           Write-Host "Previous tag: $previous"
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install Qt
-        id: qt
-        uses: jurplel/install-qt-action@v4
-        with:
-          version: "6.12.0"
-          arch: "win64_msvc2022_64"
-          cache: true
-          setup-python: false
-
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "22"
 
-      - name: Resolve Qt directory
+      - name: Install Qt
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
-          $qt = "${{ steps.qt.outputs.qt-root-dir }}"
-          if ([string]::IsNullOrWhiteSpace($qt)) {
-              $qt = $env:QT_ROOT_DIR
+          $qtRoot = "C:\Qt\6.12.0\msvc2022_64"
+          New-Item -ItemType Directory -Path $qtRoot -Force | Out-Null
+
+          $repo = "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6120/qt6_6120_msvc2022_64"
+          $packageName = "qt.qt6.6120.win64_msvc2022_64"
+          [xml]$updates = (Invoke-WebRequest -Uri "$repo/Updates.xml" -UseBasicParsing).Content
+          $package = $updates.Updates.PackageUpdate |
+              Where-Object { $_.Name -eq $packageName } |
+              Select-Object -First 1
+          if (-not $package) {
+              throw "Qt package metadata not found for $packageName."
           }
-          if ([string]::IsNullOrWhiteSpace($qt)) {
-              $qt = "C:\Qt\6.12.0\msvc2022_64"
+
+          $archive = (($package.DownloadableArchives -split ",") | Select-Object -First 1).Trim()
+          $url = "$repo/$packageName/$($package.Version)$archive"
+          $archivePath = Join-Path $env:RUNNER_TEMP $archive
+          Write-Host "Downloading $url"
+          Invoke-WebRequest -Uri $url -OutFile $archivePath -UseBasicParsing
+          $expectedHash = ((Invoke-WebRequest -Uri "$url.sha256" -UseBasicParsing).Content -split '\s+')[0]
+          if ((Get-FileHash -LiteralPath $archivePath -Algorithm SHA256).Hash -ne $expectedHash) {
+              throw "Qt base archive SHA256 verification failed."
           }
-          if (-not (Test-Path (Join-Path $qt "bin\windeployqt.exe"))) {
-              throw "Qt was not found at: $qt"
+
+          $sevenZip = @(
+              "C:\Program Files\7-Zip\7z.exe",
+              "C:\Program Files (x86)\7-Zip\7z.exe",
+              (Get-Command 7z.exe -ErrorAction SilentlyContinue).Source
+          ) | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
+          if (-not $sevenZip) {
+              throw "7-Zip was not found on the runner."
           }
-          "QT_DIR=$qt" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          Write-Host "Qt directory: $qt"
+
+          & $sevenZip x $archivePath "-o$qtRoot" -y
+          if ($LASTEXITCODE -ne 0) {
+              throw "Failed to extract the Qt base archive."
+          }
+          if (-not (Test-Path (Join-Path $qtRoot "bin\windeployqt.exe"))) {
+              throw "Qt base files were not installed correctly."
+          }
+
+          "QT_DIR=$qtRoot" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "Qt directory: $qtRoot"
 
       - name: Build, test and package
         shell: pwsh
