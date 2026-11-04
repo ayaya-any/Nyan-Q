@@ -39,10 +39,11 @@ jobs:
           }
 
           $previous = ""
-          $previousOutput = & git describe --tags --abbrev=0 "$tag^" 2>$null
-          if ($LASTEXITCODE -eq 0 -and $previousOutput) {
-              $previous = $previousOutput.Trim()
+          $previousTags = @(& git tag --merged "$tag^" --sort=-version:refname)
+          if ($LASTEXITCODE -ne 0) {
+              throw "Unable to determine the previous release tag."
           }
+          $previous = @($previousTags | Where-Object { $_ -ne $tag } | Select-Object -First 1)
 
           "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           "TAG=$tag" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
@@ -130,6 +131,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $ErrorActionPreference = "Stop"
+          $PSNativeCommandUseErrorActionPreference = $false
           $tag = $env:TAG
           $assets = @(
               "dist\Nyan-Q-$env:VERSION-win64.zip",
