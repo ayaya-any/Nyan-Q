@@ -67,7 +67,7 @@ build\Release\Nyan-Q.exe
 输出：
 
 - `dist\Nyan-Q\`
-- `dist\Nyan-Q-0.1.1-win64.zip`
+- `dist\Nyan-Q-0.1.2-win64.zip`
 
 制作简体中文安装包：
 
@@ -77,7 +77,7 @@ build\Release\Nyan-Q.exe
 
 输出：
 
-- `dist\Nyan-Q-0.1.1-win64-setup.exe`
+- `dist\Nyan-Q-0.1.2-win64-setup.exe`
 - 默认安装到 `%LOCALAPPDATA%\Programs\Nyan-Q`
 - 安装前检测并安装所需的 MSVC x64 运行库
 - 卸载默认保留 `%LOCALAPPDATA%\Nyan-Q` 中的配置和订阅
@@ -89,13 +89,15 @@ build\Release\Nyan-Q.exe
 - 校验标签与 CMake 项目版本一致
 - 构建并测试 Windows x64 版本
 - 生成便携包、简体中文安装包和 SHA-256 校验文件
-- 自动创建 GitHub Release，并附带构建信息和提交记录
+- 自动创建 GitHub Release，并附带构建信息、版本亮点和提交记录
+
+版本亮点可放在 `docs/release-notes/v*.md`，发布脚本会自动合并到中文发布说明中。
 
 ## 使用
 
 1. 打开 **订阅**，导入订阅链接或本地 YAML 文件。
 2. 在 **代理** 页选择代理组和节点。
-3. 在仪表盘或设置页开启系统代理；TUN 模式通常需要管理员权限。
+3. 在仪表盘或设置页开启系统代理；TUN 模式会请求 UAC 提权并以管理员身份重启。
 4. 在 **配置** 页编辑 YAML，保存后当前配置会自动热重载。
 
 配置名称可直接点击编辑，右侧铅笔按钮用于快速聚焦名称输入框。

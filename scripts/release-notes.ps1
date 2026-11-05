@@ -91,6 +91,12 @@ $changesUrl = if ($PreviousTag -and $repoUrl) {
     ""
 }
 
+$versionNotesPath = Join-Path (Split-Path $PSScriptRoot -Parent) "docs\release-notes\$Tag.md"
+$versionNotes = @()
+if (Test-Path -LiteralPath $versionNotesPath) {
+    $versionNotes = @(Get-Content -LiteralPath $versionNotesPath -Encoding utf8)
+}
+
 $lines = New-Object System.Collections.Generic.List[string]
 $lines.Add("# Nyan-Q $Tag")
 $lines.Add("")
@@ -104,6 +110,12 @@ $lines.Add("- 构建：Qt 6.12.0、MSVC 2022、C++20")
 $lines.Add("- Mihomo：v1.19.33")
 $lines.Add("- 安装界面：简体中文")
 $lines.Add("")
+if ($versionNotes.Count -gt 0) {
+    foreach ($line in $versionNotes) {
+        $lines.Add($line)
+    }
+    $lines.Add("")
+}
 $lines.Add("## 变更内容")
 $lines.Add("")
 $lines.Add("本版本包含 $($commits.Count) 个提交。")
@@ -151,7 +163,8 @@ $lines.Add("")
 $lines.Add("## 兼容性与说明")
 $lines.Add("")
 $lines.Add("- 仅支持 Windows 10 / 11 x64。")
-$lines.Add("- TUN 模式需要管理员权限。")
+$lines.Add("- TUN 模式需要管理员权限；开启 TUN 或启动时检测到 TUN 已启用会请求 UAC 提权。")
+$lines.Add("- 系统代理偏好会在应用重启、内核就绪后自动恢复。")
 $lines.Add("- 当前仅支持 Clash / Mihomo YAML 订阅，纯 Base64 节点列表不会自动转换。")
 $lines.Add("- 当前构建未配置代码签名，Windows SmartScreen 可能显示提示。")
 $lines.Add("- 发布资产请使用 ``SHA256SUMS.txt`` 校验完整性。")
