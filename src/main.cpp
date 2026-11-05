@@ -518,8 +518,21 @@ int main(int argc, char* argv[])
     if (!startHidden)
         window.show();
 
-    if (!demo)
-        QTimer::singleShot(400, &controller, &ClashController::start);
+    if (!demo) {
+        const bool needsStartupElevation =
+            !smokeTest && !relaunchElevated && controller.tunEnabled() &&
+            !controller.isElevated();
+        if (needsStartupElevation) {
+            // Ask for elevation before starting the core, so a canceled UAC
+            // can fall through to a normal non-TUN start.
+            QTimer::singleShot(200, &window, [&window, &controller] {
+                if (window.promptForTunAtStartup())
+                    controller.start();
+            });
+        } else {
+            QTimer::singleShot(400, &controller, &ClashController::start);
+        }
+    }
 
     const int result = app.exec();
     if (instanceLock) {

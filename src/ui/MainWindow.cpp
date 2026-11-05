@@ -537,10 +537,25 @@ void MainWindow::updateTrayTooltip()
 
 void MainWindow::requestTunElevation()
 {
+    requestTunElevationInternal(false);
+}
+
+bool MainWindow::promptForTunAtStartup()
+{
+    if (!m_controller || m_controller->isElevated() || !m_controller->tunEnabled())
+        return true;
+    return requestTunElevationInternal(true);
+}
+
+bool MainWindow::requestTunElevationInternal(bool fromStartup)
+{
     if (m_elevationPending)
-        return;
-    if (!ensureEditorClosable())
-        return;
+        return true;
+    if (!ensureEditorClosable()) {
+        if (fromStartup && m_controller)
+            m_controller->setTunEnabled(false);
+        return true;
+    }
 
     m_elevationPending = true;
 
@@ -561,19 +576,27 @@ void MainWindow::requestTunElevation()
         // lock, then starts the core with TUN enabled.
         m_forceQuit = true;
         close();
-        return;
+        return false;
     }
 
     m_elevationPending = false;
+    if (fromStartup && m_controller)
+        m_controller->setTunEnabled(false);
+
     if (result == Elevation::RelaunchResult::Canceled) {
-        reportTunElevationIssue(QStringLiteral("已取消管理员授权，TUN 模式未开启。"),
-                                false);
-    } else {
         reportTunElevationIssue(
-            error.isEmpty() ? QStringLiteral("无法以管理员身份重新启动 Nyan-Q。")
-                            : error,
-            true);
+            fromStartup ? QStringLiteral("已取消管理员授权，TUN 模式已关闭。")
+                        : QStringLiteral("已取消管理员授权，TUN 模式未开启。"),
+            false);
+    } else {
+        QString message = error.isEmpty()
+                              ? QStringLiteral("无法以管理员身份重新启动 Nyan-Q。")
+                              : error;
+        if (fromStartup)
+            message += QStringLiteral("\n\nTUN 模式已关闭。");
+        reportTunElevationIssue(message, true);
     }
+    return true;
 }
 
 void MainWindow::reportTunElevationIssue(const QString& message, bool warning)

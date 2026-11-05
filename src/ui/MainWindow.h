@@ -31,6 +31,7 @@ public:
 
     void setCurrentPage(int index);
     int currentPage() const;
+    bool promptForTunAtStartup();
     void showFromTray();
     bool hasTrayIcon() const;
     void openConfigEditor(const QString& profileId);
@@ -52,6 +53,7 @@ private:
     void updateTrayState();
     void updateTrayTooltip();
     void requestTunElevation();
+    bool requestTunElevationInternal(bool fromStartup);
     void reportTunElevationIssue(const QString& message, bool warning);
     void toggleMaximize();
     void saveWindowGeometry();
