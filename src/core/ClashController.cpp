@@ -893,6 +893,14 @@ void ClashController::setTunEnabled(bool enabled)
 {
     if (m_settings.tunEnabled == enabled)
         return;
+    if (enabled && !m_demo && !isElevated()) {
+        // The switch was already toggled by the user, so resync it with the
+        // stored setting while the UI asks for elevation in a queued slot.
+        emit tunChanged(m_settings.tunEnabled);
+        emit tunElevationRequired();
+        log(cq::LogLevel::Warning, QStringLiteral("TUN 模式需要管理员权限，正在请求提权"));
+        return;
+    }
     m_settings.tunEnabled = enabled;
     m_settingsStore.save(m_settings);
     emit tunChanged(enabled);
@@ -953,6 +961,13 @@ bool ClashController::updateSettings(const cq::AppSettings& settings, bool resta
     }
 
     const cq::AppSettings previous = m_settings;
+    bool elevationRequested = false;
+    if (next.tunEnabled && !previous.tunEnabled && !m_demo && !isElevated()) {
+        // Persist the rest of the form, but leave TUN off until the elevated
+        // instance takes over; it re-enables TUN via --enable-tun.
+        next.tunEnabled = false;
+        elevationRequested = true;
+    }
     const bool launchChanged = next.autoLaunch != previous.autoLaunch;
     if (launchChanged && !m_demo) {
         QString launchError;
@@ -1012,6 +1027,10 @@ bool ClashController::updateSettings(const cq::AppSettings& settings, bool resta
                 log(cq::LogLevel::Info, QStringLiteral("正在热应用网络设置…"));
             scheduleConfigReload();
         }
+    }
+    if (elevationRequested) {
+        emit tunElevationRequired();
+        log(cq::LogLevel::Warning, QStringLiteral("TUN 模式需要管理员权限，正在请求提权"));
     }
     return true;
 }

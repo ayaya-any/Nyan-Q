@@ -20,6 +20,7 @@ set(NYANQ_SOURCES
     src/main.cpp
 
     src/app/AppPaths.cpp
+    src/app/Elevation.cpp
     src/app/Fonts.cpp
     src/app/MenuStyler.cpp
     src/app/RoundedPopupFilter.cpp

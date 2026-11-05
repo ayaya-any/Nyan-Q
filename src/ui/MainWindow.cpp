@@ -1,6 +1,7 @@
 #include "ui/MainWindow.h"
 
 #include "app/AppPaths.h"
+#include "app/Elevation.h"
 #include "app/Fonts.h"
 #include "app/Theme.h"
 #include "core/ClashController.h"
@@ -22,8 +23,10 @@
 #include <QApplication>
 #include <QCloseEvent>
 #include <QCursor>
+#include <QDir>
 #include <QHBoxLayout>
 #include <QMenu>
+#include <QMessageBox>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPainterPath>
@@ -32,6 +35,7 @@
 #include <QSettings>
 #include <QShortcut>
 #include <QStackedWidget>
+#include <QStringList>
 #include <QSystemTrayIcon>
 #include <QTimer>
 #include <QVBoxLayout>
@@ -259,6 +263,8 @@ void MainWindow::wire()
             [this](bool) { updateTrayState(); });
     connect(m_controller, &ClashController::tunChanged, this,
             [this](bool) { updateTrayState(); });
+    connect(m_controller, &ClashController::tunElevationRequired, this,
+            &MainWindow::requestTunElevation, Qt::QueuedConnection);
     connect(m_controller, &ClashController::settingsChanged, this, [this] {
         if (Theme::instance().themeMode() != m_controller->settings().theme)
             Theme::instance().setThemeMode(m_controller->settings().theme);
@@ -282,6 +288,11 @@ void MainWindow::setCurrentPage(int index)
         return;
     m_stack->setCurrentIndex(index);
     m_sidebar->setCurrentPage(index);
+}
+
+int MainWindow::currentPage() const
+{
+    return m_stack ? m_stack->currentIndex() : 0;
 }
 
 void MainWindow::openConfigEditor(const QString& profileId)
@@ -522,6 +533,62 @@ void MainWindow::updateTrayTooltip()
                             Formatters::rate(stats.uploadSpeed));
     }
     m_tray->setToolTip(tooltip);
+}
+
+void MainWindow::requestTunElevation()
+{
+    if (m_elevationPending)
+        return;
+    if (!ensureEditorClosable())
+        return;
+
+    m_elevationPending = true;
+
+    QStringList arguments{QStringLiteral("--relaunch-elevated"),
+                          QStringLiteral("--enable-tun"),
+                          QStringLiteral("--page"),
+                          QString::number(currentPage()),
+                          QStringLiteral("--data-dir"),
+                          QDir::toNativeSeparators(AppPaths::dataDir())};
+    if (!isVisible() || isMinimized())
+        arguments.append(QStringLiteral("--start-hidden"));
+
+    QString error;
+    const Elevation::RelaunchResult result =
+        Elevation::relaunchAsAdministrator(arguments, &error);
+    if (result == Elevation::RelaunchResult::Started) {
+        // The elevated instance waits for this instance's single-instance
+        // lock, then starts the core with TUN enabled.
+        m_forceQuit = true;
+        close();
+        return;
+    }
+
+    m_elevationPending = false;
+    if (result == Elevation::RelaunchResult::Canceled) {
+        reportTunElevationIssue(QStringLiteral("已取消管理员授权，TUN 模式未开启。"),
+                                false);
+    } else {
+        reportTunElevationIssue(
+            error.isEmpty() ? QStringLiteral("无法以管理员身份重新启动 Nyan-Q。")
+                            : error,
+            true);
+    }
+}
+
+void MainWindow::reportTunElevationIssue(const QString& message, bool warning)
+{
+    if (m_tray && m_tray->isVisible() && !isVisible()) {
+        m_tray->showMessage(QStringLiteral("Nyan-Q"), message,
+                            warning ? QSystemTrayIcon::Warning
+                                    : QSystemTrayIcon::Information,
+                            4000);
+        return;
+    }
+    if (warning)
+        QMessageBox::warning(this, QStringLiteral("TUN 模式"), message);
+    else
+        QMessageBox::information(this, QStringLiteral("TUN 模式"), message);
 }
 
 void MainWindow::toggleMaximize()

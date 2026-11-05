@@ -154,7 +154,7 @@ void SettingsPage::buildUi()
     addRow(networkLayout, network, QStringLiteral("TUN 模式"),
            m_controller->isElevated()
                ? QStringLiteral("已以管理员身份运行，可创建虚拟网卡")
-               : QStringLiteral("虚拟网卡全局透明代理，通常需要以管理员身份运行"),
+               : QStringLiteral("虚拟网卡全局透明代理，开启时会请求管理员权限"),
            QStringLiteral("security"), m_tun, true);
 
     // Startup and behavior

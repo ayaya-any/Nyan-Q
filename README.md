@@ -186,7 +186,7 @@ ctest --test-dir build -C Release --output-on-failure
 
 - 主要面向 Windows；系统代理和 TUN 为 Windows 实现
 - 仅支持 Clash / Mihomo YAML，纯 Base64 节点列表不会自动转换
-- TUN 模式需要管理员权限
+- TUN 模式需要管理员权限；开启时会请求 UAC 提权并重启应用
 - 界面当前仅提供中文
 - 内核版本固定为 `v1.19.33`，升级时更新 `scripts/fetch-deps.ps1` 中的版本与校验和
 

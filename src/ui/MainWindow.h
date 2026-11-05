@@ -30,6 +30,7 @@ public:
     ~MainWindow() override;
 
     void setCurrentPage(int index);
+    int currentPage() const;
     void showFromTray();
     bool hasTrayIcon() const;
     void openConfigEditor(const QString& profileId);
@@ -50,6 +51,8 @@ private:
     void updateWindowStatus();
     void updateTrayState();
     void updateTrayTooltip();
+    void requestTunElevation();
+    void reportTunElevationIssue(const QString& message, bool warning);
     void toggleMaximize();
     void saveWindowGeometry();
     void restoreWindowGeometry();
@@ -87,6 +90,7 @@ private:
     QAction* m_trayDirectMode = nullptr;
 
     bool m_forceQuit = false;
+    bool m_elevationPending = false;
     bool m_trayHintShown = false;
     bool m_centered = false;
     bool m_themeRefreshedOnShow = false;

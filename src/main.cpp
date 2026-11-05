@@ -145,6 +145,22 @@ int main(int argc, char* argv[])
         QStringLiteral("screenshot-editor"),
         QStringLiteral("以演示模式打开当前配置编辑器并截图到 PNG 后退出（开发用途）。"),
         QStringLiteral("path"));
+    QCommandLineOption enableTunOption(
+        QStringLiteral("enable-tun"),
+        QStringLiteral("内部使用：提权重启后自动开启 TUN。"));
+    enableTunOption.setFlags(QCommandLineOption::HiddenFromHelp);
+    QCommandLineOption relaunchElevatedOption(
+        QStringLiteral("relaunch-elevated"),
+        QStringLiteral("内部使用：由 UAC 提权重启的实例。"));
+    relaunchElevatedOption.setFlags(QCommandLineOption::HiddenFromHelp);
+    QCommandLineOption startHiddenOption(
+        QStringLiteral("start-hidden"),
+        QStringLiteral("内部使用：启动后隐藏主窗口。"));
+    startHiddenOption.setFlags(QCommandLineOption::HiddenFromHelp);
+    QCommandLineOption dataDirOption(
+        QStringLiteral("data-dir"),
+        QStringLiteral("内部使用：提权重启时沿用原数据目录。"), QStringLiteral("path"));
+    dataDirOption.setFlags(QCommandLineOption::HiddenFromHelp);
     parser.addOption(demoOption);
     parser.addOption(screenshotOption);
     parser.addOption(editorScreenshotOption);
@@ -152,15 +168,28 @@ int main(int argc, char* argv[])
     parser.addOption(autostartOption);
     parser.addOption(smokeOption);
     parser.addOption(themeOption);
+    parser.addOption(enableTunOption);
+    parser.addOption(relaunchElevatedOption);
+    parser.addOption(startHiddenOption);
+    parser.addOption(dataDirOption);
     parser.process(app);
 
     const bool screenshot = parser.isSet(screenshotOption);
     const bool editorScreenshot = parser.isSet(editorScreenshotOption);
     const bool smokeTest = parser.isSet(smokeOption);
     const bool demo = parser.isSet(demoOption) || screenshot || editorScreenshot;
+    const bool enableTun = parser.isSet(enableTunOption);
+    const bool relaunchElevated = parser.isSet(relaunchElevatedOption);
+    const bool startHiddenRequested = parser.isSet(startHiddenOption);
     const QString screenshotPath = parser.value(screenshotOption);
     const QString editorScreenshotPath = parser.value(editorScreenshotOption);
     Q_UNUSED(autostartOption)
+
+    if (!demo && !smokeTest && parser.isSet(dataDirOption)) {
+        const QString dataDir = parser.value(dataDirOption).trimmed();
+        if (!dataDir.isEmpty())
+            AppPaths::setDataDirOverride(dataDir);
+    }
 
     std::unique_ptr<QTemporaryDir> transientDir;
     if (demo) {
@@ -211,7 +240,8 @@ int main(int argc, char* argv[])
         instanceName = singleInstanceName();
         auto* lock = new QLockFile(AppPaths::dataDir() + QStringLiteral("/instance.lock"));
         lock->setStaleLockTime(30000);
-        if (!lock->tryLock(350)) {
+        const int lockTimeout = relaunchElevated ? 15000 : 350;
+        if (!lock->tryLock(lockTimeout)) {
             notifyExistingInstance(instanceName);
             delete lock;
             return 0;
@@ -226,6 +256,16 @@ int main(int argc, char* argv[])
 
     ClashController controller;
     controller.initialize(demo, smokeTest);
+
+    if (enableTun && !demo && !smokeTest) {
+        if (controller.isElevated()) {
+            if (!controller.tunEnabled())
+                controller.setTunEnabled(true);
+        } else {
+            QTextStream(stderr)
+                << "TUN was requested but the process is not elevated; ignoring.\n";
+        }
+    }
 
     if (smokeTest) {
         QTextStream out(stdout);
@@ -473,7 +513,8 @@ int main(int argc, char* argv[])
     }
 
     const bool startHidden = !demo && window.hasTrayIcon() &&
-                             controller.settings().startMinimized;
+                             (controller.settings().startMinimized ||
+                              startHiddenRequested);
     if (!startHidden)
         window.show();
 

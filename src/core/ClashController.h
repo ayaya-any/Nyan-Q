@@ -93,6 +93,7 @@ signals:
     void coreVersionChanged(const QString& version);
     void systemProxyChanged(bool enabled);
     void tunChanged(bool enabled);
+    void tunElevationRequired();
     void settingsChanged();
     void activeProfileChanged();
     void memoryUsageChanged(const cq::MemoryUsage& usage);
