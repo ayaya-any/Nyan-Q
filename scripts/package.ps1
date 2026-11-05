@@ -34,6 +34,8 @@ if (-not (Test-Path (Join-Path $QtDir "bin\windeployqt.exe"))) {
 }
 $QtDir = (Resolve-Path $QtDir).Path
 
+& (Join-Path $PSScriptRoot "fetch-deps.ps1") -Installer:$Installer
+
 function Resolve-CMake {
     $command = Get-Command cmake.exe -ErrorAction SilentlyContinue
     if ($command) { return $command.Source }
@@ -51,14 +53,14 @@ function Resolve-CMake {
 
 function Resolve-Iscc {
     $candidates = @(
-        (Join-Path $Root "tools\innosetup\app\ISCC.exe"),
+        (Join-Path $Root "tools\innosetup\ISCC.exe"),
         (Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6\ISCC.exe"),
         (Join-Path $env:ProgramFiles "Inno Setup 6\ISCC.exe")
     )
     foreach ($candidate in $candidates) {
         if ($candidate -and (Test-Path $candidate)) { return $candidate }
     }
-    throw "ISCC.exe not found. Install Inno Setup 6 or place a portable copy under tools\innosetup."
+    throw "ISCC.exe not found. Run scripts\fetch-deps.ps1 -Installer."
 }
 
 function Find-VisualStudio {
@@ -149,36 +151,37 @@ if (Test-Path (Join-Path $Root "docs")) {
 # Bundle the open-source YAML language server and a portable Node runtime so
 # the editor's LSP features work without a machine-wide Node installation.
 $LspSource = Join-Path $Root "tools\yaml-language-server"
-if (Test-Path (Join-Path $LspSource "node_modules\yaml-language-server\out\src\server.js")) {
-    $LspOut = Join-Path $OutDir "lsp"
-    $LspServerOut = Join-Path $LspOut "yaml-language-server"
-    New-Item -ItemType Directory -Path $LspServerOut -Force | Out-Null
-    Copy-Item (Join-Path $LspSource "*") $LspServerOut -Recurse -Force
-    Copy-Item (Join-Path $Root "resources\clash-config.schema.json") $LspOut -Force
+if (-not (Test-Path (Join-Path $LspSource "node_modules\yaml-language-server\out\src\server.js"))) {
+    throw "YAML language server is missing after dependency preparation."
+}
+$LspOut = Join-Path $OutDir "lsp"
+$LspServerOut = Join-Path $LspOut "yaml-language-server"
+New-Item -ItemType Directory -Path $LspServerOut -Force | Out-Null
+Copy-Item (Join-Path $LspSource "*") $LspServerOut -Recurse -Force
+Copy-Item (Join-Path $Root "resources\clash-config.schema.json") $LspOut -Force
 
-    $NodeExe = (Get-Command node.exe -ErrorAction SilentlyContinue).Source
-    if (-not $NodeExe) {
-        $NodeExe = Join-Path $env:ProgramFiles "nodejs\node.exe"
-    }
-    if (-not (Test-Path $NodeExe)) {
-        throw "Node.js runtime not found; cannot bundle the YAML language server."
-    }
-    Copy-Item $NodeExe (Join-Path $LspOut "node.exe") -Force
-    $NodeLicense = Join-Path (Split-Path $NodeExe -Parent) "LICENSE"
-    if (Test-Path $NodeLicense) {
-        Copy-Item $NodeLicense (Join-Path $OutDir "licenses\Node-LICENSE.txt") -Force
-    }
-    $YamlLicense = Join-Path $LspSource "node_modules\yaml-language-server\LICENSE"
-    if (Test-Path $YamlLicense) {
-        Copy-Item $YamlLicense (Join-Path $OutDir "licenses\Yaml-Language-Server-LICENSE.txt") `
-            -Force
-    }
-    @"
+$NodeExe = (Get-Command node.exe -ErrorAction SilentlyContinue).Source
+if (-not $NodeExe) {
+    $NodeExe = Join-Path $env:ProgramFiles "nodejs\node.exe"
+}
+if (-not (Test-Path $NodeExe)) {
+    throw "Node.js runtime not found; cannot bundle the YAML language server."
+}
+Copy-Item $NodeExe (Join-Path $LspOut "node.exe") -Force
+$NodeLicense = Join-Path (Split-Path $NodeExe -Parent) "LICENSE"
+if (Test-Path $NodeLicense) {
+    Copy-Item $NodeLicense (Join-Path $OutDir "licenses\Node-LICENSE.txt") -Force
+}
+$YamlLicense = Join-Path $LspSource "node_modules\yaml-language-server\LICENSE"
+if (Test-Path $YamlLicense) {
+    Copy-Item $YamlLicense (Join-Path $OutDir "licenses\Yaml-Language-Server-LICENSE.txt") `
+        -Force
+}
+@"
 YAML Language Server is bundled for the Nyan-Q configuration editor.
 It is started by Nyan-Q as a stdio LSP server; it is not linked into the app.
 See licenses/Yaml-Language-Server-LICENSE.txt and THIRD_PARTY_NOTICES.md.
 "@ | Set-Content -LiteralPath (Join-Path $LspOut "README.txt") -Encoding UTF8
-}
 
 $WinDeployQt = Join-Path $QtDir "bin\windeployqt.exe"
 Write-Host "Deploying Qt runtime from $QtDir" -ForegroundColor DarkGray
@@ -220,7 +223,7 @@ try {
     $env:Path = "$env:SystemRoot\System32;$env:SystemRoot"
     $process = Start-Process -FilePath (Join-Path $OutDir "Nyan-Q.exe") `
         -ArgumentList @("--demo", "--screenshot", "`"$preview`"", "--page", "dashboard") `
-        -Wait -PassThru
+        -WindowStyle Hidden -Wait -PassThru
     if ($process.ExitCode -ne 0 -or -not (Test-Path $preview)) {
         throw "Packaged executable failed to render a screenshot (exit $($process.ExitCode))."
     }
@@ -228,7 +231,7 @@ try {
     $editorPreview = Join-Path $OutDir "package-editor-check.png"
     $editorProcess = Start-Process -FilePath (Join-Path $OutDir "Nyan-Q.exe") `
         -ArgumentList @("--screenshot-editor", "`"$editorPreview`"") `
-        -Wait -PassThru
+        -WindowStyle Hidden -Wait -PassThru
     if ($editorProcess.ExitCode -ne 0 -or -not (Test-Path $editorPreview)) {
         throw "Packaged editor/LSP check failed (exit $($editorProcess.ExitCode))."
     }

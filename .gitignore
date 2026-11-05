@@ -10,4 +10,5 @@ out/
 *.VC.db
 *.log
 *.tmp
-third_party/mihomo/*.zip
+/tools/
+/third_party/

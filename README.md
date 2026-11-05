@@ -31,9 +31,12 @@ Material 3 风格组件，通过本机 REST API 管理 Mihomo 内核。
 - Qt 6.12.0 `msvc2022_64`
 - Visual Studio 2022（MSVC v143）
 - CMake 3.21+
+- Node.js 22（包含 npm，用于下载 YAML 语言服务）
 
 ```powershell
 $QtDir = "D:\Qt\6.12.0\msvc2022_64"
+
+.\scripts\fetch-deps.ps1
 
 cmake -S . -B build -G "Visual Studio 17 2022" -A x64 `
   -DCMAKE_PREFIX_PATH="$QtDir" `
@@ -55,10 +58,16 @@ build\Release\Nyan-Q.exe
 .\scripts\package.ps1 -QtDir "D:\Qt\6.12.0\msvc2022_64"
 ```
 
+打包脚本会自动从官方来源下载固定版本的 Mihomo、Wintun 和 YAML 语言服务，
+制作安装包时还会下载 Inno Setup 和 VC++ x64 运行库。下载包经过 SHA-256
+校验，npm 依赖通过 `scripts/lsp/package-lock.json` 锁定并校验。
+`tools/`、`third_party/` 和 `.cache/deps/` 仅作为本地生成目录，不提交到仓库。
+重复构建会复用缓存；需要重新下载时运行 `.\scripts\fetch-deps.ps1 -Installer -Force`。
+
 输出：
 
 - `dist\Nyan-Q\`
-- `dist\Nyan-Q-0.1.0-win64.zip`
+- `dist\Nyan-Q-0.1.1-win64.zip`
 
 制作简体中文安装包：
 
@@ -68,7 +77,7 @@ build\Release\Nyan-Q.exe
 
 输出：
 
-- `dist\Nyan-Q-0.1.0-win64-setup.exe`
+- `dist\Nyan-Q-0.1.1-win64-setup.exe`
 - 默认安装到 `%LOCALAPPDATA%\Programs\Nyan-Q`
 - 安装前检测并安装所需的 MSVC x64 运行库
 - 卸载默认保留 `%LOCALAPPDATA%\Nyan-Q` 中的配置和订阅
@@ -175,7 +184,7 @@ ctest --test-dir build -C Release --output-on-failure
 - 仅支持 Clash / Mihomo YAML，纯 Base64 节点列表不会自动转换
 - TUN 模式需要管理员权限
 - 界面当前仅提供中文
-- 内核版本固定为 `v1.19.33`，升级时替换 `third_party/mihomo/mihomo.exe`
+- 内核版本固定为 `v1.19.33`，升级时更新 `scripts/fetch-deps.ps1` 中的版本与校验和
 
 ## 第三方
 

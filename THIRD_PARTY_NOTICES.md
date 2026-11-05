@@ -30,7 +30,8 @@ Mihomo 进程通过本机 HTTP REST API 由 Nyan-Q 控制，未与 Nyan-Q 静态
 - 授权：Microsoft Visual C++ Redistributable 许可。
 - 说明：发布脚本从已安装的 Visual Studio 可再发行组件目录复制这些 DLL；
   安装包同时内置官方 `vc_redist.x64.exe`，在运行库缺失或版本过旧时检测并安装。
-- 安装包内的运行库来源：https://aka.ms/vs/17/release/vc_redist.x64.exe
+- 安装包内的运行库固定为 14.44.35211.0，从 Microsoft 官方下载地址获取，
+  地址与 SHA-256 校验和见 `scripts/fetch-deps.ps1`。
 - 参考：https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist
 
 ## Node.js
@@ -74,6 +75,11 @@ Node.js 与 YAML Language Server 以独立子进程运行，未与 Nyan-Q 静态
 - 来源：https://github.com/google/material-design-icons
 
 ## 说明
+
+`tools/` 和 `third_party/` 不随源码提交。打包脚本按
+`scripts/fetch-deps.ps1` 中的固定版本从官方来源下载依赖；YAML 语言服务的
+依赖树由 `scripts/lsp/package-lock.json` 锁定。安装包构建工具为
+Inno Setup 6.7.4（https://github.com/jrsoftware/issrc），不随应用运行。
 
 本文件不构成法律意见。分发二进制包前，请根据实际分发方式重新审阅所有
 许可证的要求，并确保相应的源代码获取方式与许可证文本随包提供。

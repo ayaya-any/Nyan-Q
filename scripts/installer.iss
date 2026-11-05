@@ -1,9 +1,9 @@
 ﻿; Nyan-Q Inno Setup script.
 ; Build with:
-;   ISCC.exe /DAppVersion=0.1.0 /DPayloadDir=... /DOutputDir=... /DVCRedistPath=... installer.iss
+;   ISCC.exe /DAppVersion=0.1.1 /DPayloadDir=... /DOutputDir=... /DVCRedistPath=... installer.iss
 
 #ifndef AppVersion
-  #define AppVersion "0.1.0"
+  #define AppVersion "0.1.1"
 #endif
 #ifndef PayloadDir
   #define PayloadDir "..\dist\Nyan-Q"
