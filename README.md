@@ -175,6 +175,10 @@ ctest --test-dir build -C Release --output-on-failure
 - Node.js 22
 - [yaml-language-server](https://github.com/redhat-developer/yaml-language-server)
 
+便携包和安装包均包含上述运行时及语言服务，用于提供 YAML 补全、诊断和
+格式化，无需额外安装 Node.js。发布包体积包含这些组件，具体大小会随依赖
+版本和压缩方式变化。
+
 语言服务配置可通过程序目录下的 `lsp-servers.json` 覆盖，示例见
 `lsp-servers.example.json`。
 
