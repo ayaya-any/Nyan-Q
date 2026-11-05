@@ -709,6 +709,9 @@ void ClashController::handleCoreReady(const QString& version)
     } else if (m_restoreSystemProxyAfterRestart) {
         m_restoreSystemProxyAfterRestart = false;
         setSystemProxy(true);
+    } else if (m_settings.systemProxyEnabled) {
+        // Restore the user's system-proxy preference after an app restart.
+        setSystemProxy(true);
     }
 }
 
@@ -1059,6 +1062,7 @@ void ClashController::setSystemProxy(bool enabled)
             }
         }
         m_systemProxyEnabled = false;
+        persistSystemProxyPreference(false);
         emit systemProxyChanged(false);
         log(cq::LogLevel::Info, QStringLiteral("系统代理已关闭"));
         return;
@@ -1067,6 +1071,7 @@ void ClashController::setSystemProxy(bool enabled)
     if (m_state != cq::CoreState::Running) {
         if (m_state == cq::CoreState::Starting) {
             m_pendingSystemProxy = true;
+            persistSystemProxyPreference(true);
             emit notification(QStringLiteral("内核就绪后将自动开启系统代理"), false);
             emit systemProxyChanged(false);
             return;
@@ -1076,8 +1081,10 @@ void ClashController::setSystemProxy(bool enabled)
         return;
     }
 
-    if (m_systemProxyEnabled)
+    if (m_systemProxyEnabled) {
+        persistSystemProxyPreference(true);
         return;
+    }
     QString error;
     if (!m_systemProxy.enable(m_settings.mixedPort, &error)) {
         m_systemProxyEnabled = false;
@@ -1087,9 +1094,18 @@ void ClashController::setSystemProxy(bool enabled)
     }
     m_systemProxyEnabled = true;
     m_pendingSystemProxy = false;
+    persistSystemProxyPreference(true);
     emit systemProxyChanged(true);
     log(cq::LogLevel::Info,
         QStringLiteral("系统代理已指向 127.0.0.1:%1").arg(m_settings.mixedPort));
+}
+
+void ClashController::persistSystemProxyPreference(bool enabled)
+{
+    if (m_settings.systemProxyEnabled == enabled)
+        return;
+    m_settings.systemProxyEnabled = enabled;
+    m_settingsStore.save(m_settings);
 }
 
 void ClashController::syncSystemProxy(bool enabled)

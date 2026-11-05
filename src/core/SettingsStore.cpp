@@ -35,6 +35,8 @@ cq::AppSettings SettingsStore::load()
         ini.value(QStringLiteral("network/controllerPort"), settings.controllerPort).toInt();
     settings.secret = ini.value(QStringLiteral("network/secret"), QString()).toString();
     settings.allowLan = ini.value(QStringLiteral("network/allowLan"), settings.allowLan).toBool();
+    settings.systemProxyEnabled =
+        ini.value(QStringLiteral("network/systemProxy"), settings.systemProxyEnabled).toBool();
     settings.ipv6 = ini.value(QStringLiteral("network/ipv6"), settings.ipv6).toBool();
     settings.mode = ini.value(QStringLiteral("network/mode"), settings.mode).toString().toLower();
     settings.tunEnabled = ini.value(QStringLiteral("network/tun"), settings.tunEnabled).toBool();
@@ -99,6 +101,7 @@ void SettingsStore::save(const cq::AppSettings& settings)
     ini.setValue(QStringLiteral("network/controllerPort"), settings.controllerPort);
     ini.setValue(QStringLiteral("network/secret"), settings.secret);
     ini.setValue(QStringLiteral("network/allowLan"), settings.allowLan);
+    ini.setValue(QStringLiteral("network/systemProxy"), settings.systemProxyEnabled);
     ini.setValue(QStringLiteral("network/ipv6"), settings.ipv6);
     ini.setValue(QStringLiteral("network/mode"), settings.mode);
     ini.setValue(QStringLiteral("network/tun"), settings.tunEnabled);

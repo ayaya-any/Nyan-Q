@@ -121,6 +121,7 @@ private:
     void requestStop(bool restartAfter);
     void clearTransientState();
     void syncSystemProxy(bool enabled);
+    void persistSystemProxyPreference(bool enabled);
     void maybeAutoUpdateSubscription();
     void updateMemoryUsage();
     void scheduleConfigReload();

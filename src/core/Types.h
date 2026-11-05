@@ -16,6 +16,7 @@ struct AppSettings {
     int controllerPort = 9090;
     QString secret;
     bool allowLan = false;
+    bool systemProxyEnabled = false;
     QString mode = QStringLiteral("rule");
     QString logLevel = QStringLiteral("info");
     QString appLogLevel = QStringLiteral("info");
