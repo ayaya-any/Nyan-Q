@@ -7,6 +7,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QProcess>
+#include <QStringList>
 #include <QTimer>
 #include <QUrl>
 
@@ -289,16 +290,24 @@ void LspClient::handleServerRequest(int id, const QString& method, const QJsonOb
 {
     if (method == QLatin1String("workspace/configuration")) {
         const QJsonArray items = params.value(QStringLiteral("items")).toArray();
-        const QJsonObject yaml =
-            m_profile.initializationOptions.value(QStringLiteral("yaml")).toObject();
+        auto valueForSection = [this](const QString& section) -> QJsonValue {
+            if (section.isEmpty())
+                return QJsonValue::Null;
+            QJsonValue value = m_profile.initializationOptions;
+            const QStringList path =
+                section.split(QLatin1Char('.'), Qt::SkipEmptyParts);
+            for (const QString& part : path) {
+                if (!value.isObject())
+                    return QJsonValue::Null;
+                value = value.toObject().value(part);
+            }
+            return value;
+        };
         QJsonArray settings;
         for (const QJsonValue& value : items) {
             const QString section =
                 value.toObject().value(QStringLiteral("section")).toString();
-            if (section == QLatin1String("yaml") || section.startsWith(QLatin1String("yaml.")))
-                settings.append(yaml);
-            else
-                settings.append(QJsonValue::Null);
+            settings.append(valueForSection(section));
         }
         sendMessage(QJsonObject{{QStringLiteral("jsonrpc"), QStringLiteral("2.0")},
                                 {QStringLiteral("id"), id},
@@ -412,6 +421,12 @@ void LspClient::handleResponse(int id, const QJsonObject& message)
         m_initializeTimer->stop();
         m_capabilities = resultValue.toObject().value(QStringLiteral("capabilities")).toObject();
         sendNotification(QStringLiteral("initialized"), {});
+        // The Rust server only applies initializationOptions after a
+        // didChangeConfiguration notification; without it it may fall back to
+        // SchemaStore schemas and report false errors for Clash configs.
+        sendNotification(QStringLiteral("workspace/didChangeConfiguration"),
+                         QJsonObject{{QStringLiteral("settings"),
+                                      m_profile.initializationOptions}});
         setState(State::Ready);
         emit ready();
         return;

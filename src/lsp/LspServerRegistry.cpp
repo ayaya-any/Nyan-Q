@@ -62,6 +62,7 @@ LspServerProfile yamlProfile()
         {QStringLiteral("hover"), true},
         {QStringLiteral("completion"), true},
         {QStringLiteral("format"), QJsonObject{{QStringLiteral("enable"), true}}},
+        {QStringLiteral("schemaStore"), QJsonObject{{QStringLiteral("enable"), false}}},
     };
 
     // A bundled schema makes schema-driven completion and diagnostics work

@@ -12,7 +12,8 @@
           "validate": true,
           "hover": true,
           "completion": true,
-          "format": { "enable": true }
+          "format": { "enable": true },
+          "schemaStore": { "enable": false }
         }
       }
     }
