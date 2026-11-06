@@ -23,14 +23,11 @@ QString findBundledServer()
 {
     const QString app = QCoreApplication::applicationDirPath();
     const QStringList candidates = {
+        QDir(app).filePath(QStringLiteral("lsp/yaml-language-server.exe")),
         QDir(app).filePath(QStringLiteral(
-            "lsp/yaml-language-server/node_modules/yaml-language-server/out/src/server.js")),
+            "../../tools/yaml-language-server/yaml-language-server.exe")),
         QDir(app).filePath(QStringLiteral(
-            "../../tools/yaml-language-server/node_modules/yaml-language-server/out/src/"
-            "server.js")),
-        QDir(app).filePath(QStringLiteral(
-            "../../../tools/yaml-language-server/node_modules/yaml-language-server/out/src/"
-            "server.js")),
+            "../../../tools/yaml-language-server/yaml-language-server.exe")),
         qEnvironmentVariable("NYANQ_YAML_LSP_SERVER"),
         qEnvironmentVariable("CLASHQ_YAML_LSP_SERVER"),
     };
@@ -39,15 +36,6 @@ QString findBundledServer()
             return QFileInfo(candidate).absoluteFilePath();
     }
     return {};
-}
-
-QString findNode()
-{
-    const QString bundled =
-        QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("lsp/node.exe"));
-    if (QFileInfo::exists(bundled))
-        return QFileInfo(bundled).absoluteFilePath();
-    return QStandardPaths::findExecutable(QStringLiteral("node"));
 }
 
 LspServerProfile yamlProfile()
@@ -59,17 +47,15 @@ LspServerProfile yamlProfile()
     profile.extensions = {QStringLiteral("yaml"), QStringLiteral("yml")};
 
     const QString server = findBundledServer();
-    const QString node = findNode();
-    if (!server.isEmpty() && !node.isEmpty()) {
-        profile.command = node;
-        profile.arguments = {server, QStringLiteral("--stdio")};
+    if (!server.isEmpty()) {
+        profile.command = server;
     } else {
         const QString executable =
             QStandardPaths::findExecutable(QStringLiteral("yaml-language-server"));
         profile.command = executable.isEmpty() ? QStringLiteral("yaml-language-server")
                                                : executable;
-        profile.arguments = {QStringLiteral("--stdio")};
     }
+    profile.arguments = {QStringLiteral("--stdio")};
 
     QJsonObject yamlOptions{
         {QStringLiteral("validate"), true},
@@ -87,7 +73,8 @@ LspServerProfile yamlProfile()
         yamlOptions.insert(
             QStringLiteral("schemas"),
             QJsonObject{{schemaUri,
-                         QJsonArray{QStringLiteral("*.yaml"), QStringLiteral("*.yml")}}});
+                         QJsonArray{QStringLiteral("*.yaml"), QStringLiteral("**/*.yaml"),
+                                    QStringLiteral("*.yml"), QStringLiteral("**/*.yml")}}});
     }
 
     profile.initializationOptions =

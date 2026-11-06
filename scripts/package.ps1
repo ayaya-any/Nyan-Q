@@ -148,38 +148,25 @@ if (Test-Path (Join-Path $Root "docs")) {
     Copy-Item (Join-Path $Root "docs") $OutDir -Recurse -Force
 }
 
-# Bundle the open-source YAML language server and a portable Node runtime so
-# the editor's LSP features work without a machine-wide Node installation.
+# Bundle the standalone Rust YAML language server. It is a single executable
+# and does not require Node.js or any other runtime.
 $LspSource = Join-Path $Root "tools\yaml-language-server"
-if (-not (Test-Path (Join-Path $LspSource "node_modules\yaml-language-server\out\src\server.js"))) {
-    throw "YAML language server is missing after dependency preparation."
+$YamlLsp = Join-Path $LspSource "yaml-language-server.exe"
+if (-not (Test-Path $YamlLsp)) {
+    throw "YAML language server is missing after dependency preparation: $YamlLsp"
+}
+$YamlLicense = Join-Path $Root "licenses\Yaml-Language-Server-LICENSE.txt"
+if (-not (Test-Path $YamlLicense)) {
+    throw "YAML language server license is missing: $YamlLicense"
 }
 $LspOut = Join-Path $OutDir "lsp"
-$LspServerOut = Join-Path $LspOut "yaml-language-server"
-New-Item -ItemType Directory -Path $LspServerOut -Force | Out-Null
-Copy-Item (Join-Path $LspSource "*") $LspServerOut -Recurse -Force
+New-Item -ItemType Directory -Path $LspOut -Force | Out-Null
+Copy-Item $YamlLsp (Join-Path $LspOut "yaml-language-server.exe") -Force
 Copy-Item (Join-Path $Root "resources\clash-config.schema.json") $LspOut -Force
-
-$NodeExe = (Get-Command node.exe -ErrorAction SilentlyContinue).Source
-if (-not $NodeExe) {
-    $NodeExe = Join-Path $env:ProgramFiles "nodejs\node.exe"
-}
-if (-not (Test-Path $NodeExe)) {
-    throw "Node.js runtime not found; cannot bundle the YAML language server."
-}
-Copy-Item $NodeExe (Join-Path $LspOut "node.exe") -Force
-$NodeLicense = Join-Path (Split-Path $NodeExe -Parent) "LICENSE"
-if (Test-Path $NodeLicense) {
-    Copy-Item $NodeLicense (Join-Path $OutDir "licenses\Node-LICENSE.txt") -Force
-}
-$YamlLicense = Join-Path $LspSource "node_modules\yaml-language-server\LICENSE"
-if (Test-Path $YamlLicense) {
-    Copy-Item $YamlLicense (Join-Path $OutDir "licenses\Yaml-Language-Server-LICENSE.txt") `
-        -Force
-}
 @"
-YAML Language Server is bundled for the Nyan-Q configuration editor.
-It is started by Nyan-Q as a stdio LSP server; it is not linked into the app.
+YAML Language Server (Rust, standalone) is bundled for the Nyan-Q configuration editor.
+It is started by Nyan-Q as a stdio LSP server; it is not linked into the app and
+does not require Node.js.
 See licenses/Yaml-Language-Server-LICENSE.txt and THIRD_PARTY_NOTICES.md.
 "@ | Set-Content -LiteralPath (Join-Path $LspOut "README.txt") -Encoding UTF8
 

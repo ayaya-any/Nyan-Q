@@ -13,7 +13,7 @@
     not need to hit the network again. Pass -Force to redownload and
     reinstall everything.
 
-    Node.js 22 with npm is required to install the YAML language server.
+    No Node.js installation is required.
 
 .PARAMETER Installer
     Also fetch the dependencies used to build the Inno Setup installer:
@@ -52,6 +52,11 @@ $WintunVersion = "0.14.1"
 $WintunUrl = "https://www.wintun.net/builds/wintun-$WintunVersion.zip"
 $WintunZipSha256 = "07C256185D6EE3652E09FA55C0B673E2624B565E02C4B9091C79CA7D2F24EF51"
 $WintunDllSha256 = "E5DA8447DC2C320EDC0FC52FA01885C103DE8C118481F683643CACC3220DAFCE"
+
+$YamlLspVersion = "0.1.0"
+$YamlLspUrl = "https://github.com/ayaya-any/yaml-language-server-rust/releases/download/v$YamlLspVersion/yaml-language-server-v$YamlLspVersion-windows-x64.zip"
+$YamlLspZipSha256 = "5C7D84AFC505DDFE6BD1FC34C977D9395C81327967B77F82727181C125512B76"
+$YamlLspExeSha256 = "7B0FB4B0397144B613A01448AC0555DE04AB28D752F072EBDF3F66E854C1CD47"
 
 $InnoVersion = "6.7.4"
 $InnoSetupUrl = "https://github.com/jrsoftware/issrc/releases/download/is-6_7_4/innosetup-$InnoVersion.exe"
@@ -197,56 +202,25 @@ function Install-Wintun
 function Install-YamlLanguageServer
 {
     $directory = Join-Path $ToolsDir "yaml-language-server"
-    $server = Join-Path $directory "node_modules\yaml-language-server\out\src\server.js"
-    $manifestDirectory = Join-Path $PSScriptRoot "lsp"
-    $packageJson = Join-Path $manifestDirectory "package.json"
-    $packageLock = Join-Path $manifestDirectory "package-lock.json"
-    $marker = Join-Path $directory ".lock-sha256"
-
-    if (-not (Test-Path -LiteralPath $packageJson) -or
-        -not (Test-Path -LiteralPath $packageLock)) {
-        throw "YAML language server manifests are missing from $manifestDirectory"
-    }
-
-    $lockHash = (Get-FileHash -LiteralPath $packageLock -Algorithm SHA256).Hash
-    $installedLockHash = ""
-    if (Test-Path -LiteralPath $marker) {
-        $installedLockHash = (Get-Content -LiteralPath $marker -Raw).Trim()
-    }
-    if (-not $Force -and (Test-Path -LiteralPath $server) -and
-        $installedLockHash -eq $lockHash) {
-        Write-Host "  yaml-language-server (cached)"
+    $executable = Join-Path $directory "yaml-language-server.exe"
+    if (-not $Force -and (Test-Sha256 $executable $YamlLspExeSha256)) {
+        Write-Host "  yaml-language-server $YamlLspVersion (cached)"
         return
     }
 
-    $npm = Get-Command npm.cmd -ErrorAction SilentlyContinue
-    if (-not $npm) {
-        $npm = Get-Command npm -ErrorAction SilentlyContinue
-    }
-    if (-not $npm) {
-        throw "npm was not found. Install Node.js 22 (including npm) to fetch yaml-language-server."
-    }
-
-    Write-Step "YAML language server"
+    Write-Step "YAML language server $YamlLspVersion"
+    $archive = Get-DependencyFile -Url $YamlLspUrl `
+        -FileName "yaml-language-server-v$YamlLspVersion-windows-x64.zip" `
+        -Sha256 $YamlLspZipSha256
     Reset-ToolDirectory $directory
-    Copy-Item -LiteralPath $packageJson -Destination $directory
-    Copy-Item -LiteralPath $packageLock -Destination $directory
-
-    Push-Location $directory
-    try {
-        & $npm.Source ci --omit=dev --ignore-scripts --no-audit --no-fund
-        if ($LASTEXITCODE -ne 0) {
-            throw "npm ci failed with exit code $LASTEXITCODE."
-        }
-    } finally {
-        Pop-Location
+    Expand-ZipEntry -ZipPath $archive -EntryName "yaml-language-server.exe" `
+        -Destination $executable
+    Expand-ZipEntry -ZipPath $archive -EntryName "LICENSE" `
+        -Destination (Join-Path $directory "LICENSE")
+    if (-not (Test-Sha256 $executable $YamlLspExeSha256)) {
+        throw "yaml-language-server.exe failed SHA256 verification after extraction."
     }
-
-    if (-not (Test-Path -LiteralPath $server)) {
-        throw "yaml-language-server was not installed correctly: $server"
-    }
-    [System.IO.File]::WriteAllText($marker, $lockHash)
-    Write-Host "  installed $server"
+    Write-Host "  installed $executable"
 }
 
 function Install-VCRedist

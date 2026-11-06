@@ -34,23 +34,16 @@ Mihomo 进程通过本机 HTTP REST API 由 Nyan-Q 控制，未与 Nyan-Q 静态
   地址与 SHA-256 校验和见 `scripts/fetch-deps.ps1`。
 - 参考：https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist
 
-## Node.js
+## YAML Language Server (Rust)
 
-- 版本：Node.js 22.18.0 Windows x64（随包 `lsp/node.exe`）。
-- 用途：运行 YAML Language Server，作为编辑器的 stdio LSP 子进程。
-- 授权：Node.js 使用 MIT 及第三方组件许可。
-- 许可证：`licenses/Node-LICENSE.txt`。
-- 项目主页：https://nodejs.org/
-
-## YAML Language Server
-
-- 版本：2.0.0。
+- 版本：0.1.0（Windows x64 独立二进制 `lsp/yaml-language-server.exe`）。
 - 用途：为配置编辑器提供 YAML 的 LSP 补全、诊断与格式化。
 - 授权：MIT License。
 - 许可证：`licenses/Yaml-Language-Server-LICENSE.txt`。
-- 源码：https://github.com/redhat-developer/yaml-language-server
+- 源码：https://github.com/ayaya-any/yaml-language-server-rust
 
-Node.js 与 YAML Language Server 以独立子进程运行，未与 Nyan-Q 静态链接。
+YAML Language Server 以独立子进程运行，未与 Nyan-Q 静态链接，也不需要
+Node.js 运行时。
 
 ## Wintun
 
@@ -77,8 +70,8 @@ Node.js 与 YAML Language Server 以独立子进程运行，未与 Nyan-Q 静态
 ## 说明
 
 `tools/` 和 `third_party/` 不随源码提交。打包脚本按
-`scripts/fetch-deps.ps1` 中的固定版本从官方来源下载依赖；YAML 语言服务的
-依赖树由 `scripts/lsp/package-lock.json` 锁定。安装包构建工具为
+`scripts/fetch-deps.ps1` 中的固定版本从官方来源下载依赖；YAML 语言服务为
+预编译独立二进制，并按 SHA-256 校验。安装包构建工具为
 Inno Setup 6.7.4（https://github.com/jrsoftware/issrc），不随应用运行。
 
 本文件不构成法律意见。分发二进制包前，请根据实际分发方式重新审阅所有

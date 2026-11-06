@@ -5,11 +5,8 @@
       "name": "YAML Language Server",
       "languageId": "yaml",
       "extensions": ["yaml", "yml"],
-      "command": "${app}/lsp/node.exe",
-      "args": [
-        "${app}/lsp/yaml-language-server/node_modules/yaml-language-server/out/src/server.js",
-        "--stdio"
-      ],
+      "command": "${app}/lsp/yaml-language-server.exe",
+      "args": ["--stdio"],
       "initializationOptions": {
         "yaml": {
           "validate": true,

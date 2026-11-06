@@ -19,7 +19,7 @@ Material 3 风格组件，通过本机 REST API 管理 Mihomo 内核。
 - 系统代理、TUN、局域网代理开关
 - 导入 Clash / Mihomo YAML 订阅或本地文件，支持配额、到期时间、自动更新和热重载
 - 全窗口 YAML 编辑器，支持查找替换、未保存保护、配置重命名
-- 编辑器接入开源 `yaml-language-server`，提供补全、诊断和格式化
+- 编辑器接入独立 Rust 实现的 `yaml-language-server`，提供补全、诊断和格式化
 - 深色 / 浅色 / 跟随系统主题
 - 系统托盘、单实例、开机启动、启动时最小化、关闭到托盘
 
@@ -31,7 +31,6 @@ Material 3 风格组件，通过本机 REST API 管理 Mihomo 内核。
 - Qt 6.12.0 `msvc2022_64`
 - Visual Studio 2022（MSVC v143）
 - CMake 3.21+
-- Node.js 22（包含 npm，用于下载 YAML 语言服务）
 
 ```powershell
 $QtDir = "D:\Qt\6.12.0\msvc2022_64"
@@ -60,7 +59,7 @@ build\Release\Nyan-Q.exe
 
 打包脚本会自动从官方来源下载固定版本的 Mihomo、Wintun 和 YAML 语言服务，
 制作安装包时还会下载 Inno Setup 和 VC++ x64 运行库。下载包经过 SHA-256
-校验，npm 依赖通过 `scripts/lsp/package-lock.json` 锁定并校验。
+校验；YAML 语言服务使用独立的 Rust 预编译二进制，不再依赖 Node.js 或 npm。
 `tools/`、`third_party/` 和 `.cache/deps/` 仅作为本地生成目录，不提交到仓库。
 重复构建会复用缓存；需要重新下载时运行 `.\scripts\fetch-deps.ps1 -Installer -Force`。
 
@@ -172,17 +171,15 @@ ctest --test-dir build -C Release --output-on-failure
 
 ## 语言服务
 
-编辑器使用标准 LSP stdio 客户端，发布包内置：
+编辑器使用标准 LSP stdio 客户端，发布包内置独立进程：
 
-- Node.js 22
-- [yaml-language-server](https://github.com/redhat-developer/yaml-language-server)
+- [yaml-language-server-rust](https://github.com/ayaya-any/yaml-language-server-rust) v0.1.0
+- 单一可执行文件 `lsp/yaml-language-server.exe`，无需 Node.js、Python 或其他运行时
 
-便携包和安装包均包含上述运行时及语言服务，用于提供 YAML 补全、诊断和
-格式化，无需额外安装 Node.js。发布包体积包含这些组件，具体大小会随依赖
-版本和压缩方式变化。
-
+便携包和安装包均包含该语言服务，用于提供 YAML 补全、诊断和格式化。
 语言服务配置可通过程序目录下的 `lsp-servers.json` 覆盖，示例见
-`lsp-servers.example.json`。
+`lsp-servers.example.json`。如果曾基于旧版示例创建过配置，请把 `command`
+改为 `${app}/lsp/yaml-language-server.exe`，并移除 Node.js 和 `server.js` 参数。
 
 ## 已知限制
 
