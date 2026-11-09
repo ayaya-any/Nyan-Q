@@ -68,9 +68,10 @@ build\Release\Nyan-Q.exe
 ```
 
 打包脚本会自动从官方来源下载固定版本的 Mihomo、Wintun 和 libyaml，
-制作安装包时还会下载 Inno Setup 和 VC++ x64 运行库。下载包经过 SHA-256
-校验；QuickJS 由 CMake FetchContent 获取，编辑器语言服务为内置模块，
-不依赖 Node.js、Python 或任何外部 LSP 进程。
+制作安装包时还会下载 Nyan Setup 和 VC++ x64 运行库。下载包经过 SHA-256
+校验；Nyan Setup 是静态链接的 Rust 安装器生成器，无需安装 Inno Setup，
+生成的安装包也不依赖 .NET 或外部运行库。QuickJS 由 CMake FetchContent 获取，
+编辑器语言服务为内置模块，不依赖 Node.js、Python 或任何外部 LSP 进程。
 `tools/`、`third_party/` 和 `.cache/deps/` 仅作为本地生成目录，不提交到仓库。
 重复构建会复用缓存；需要重新下载时运行 `.\scripts\fetch-deps.ps1 -Installer -Force`。
 
@@ -91,6 +92,12 @@ build\Release\Nyan-Q.exe
 - 默认安装到 `%LOCALAPPDATA%\Programs\Nyan-Q`
 - 安装前检测并安装所需的 MSVC x64 运行库
 - 卸载默认保留 `%LOCALAPPDATA%\Nyan-Q` 中的配置和订阅
+
+安装包由 `nyan-setup.exe pack` 生成，可用以下命令无界面校验归档完整性：
+
+```powershell
+.\dist\Nyan-Q-0.1.4-win64-setup.exe --extract-to .\build\installer-verify
+```
 
 ### 发布
 

@@ -5,7 +5,7 @@
 
 .DESCRIPTION
     The repository intentionally does not track the Mihomo core, Wintun,
-    libyaml, Inno Setup or the VC++ redistributable.
+    libyaml, Nyan Setup or the VC++ redistributable.
     This script fetches the pinned versions into tools/ and third_party/
     (both ignored by Git) and verifies package checksums. QuickJS-ng is
     fetched separately by CMake FetchContent.
@@ -17,8 +17,8 @@
     No Node.js installation is required.
 
 .PARAMETER Installer
-    Also fetch the dependencies used to build the Inno Setup installer:
-    Inno Setup itself and the Microsoft VC++ x64 redistributable.
+    Also fetch the dependencies used to build the installer: Nyan Setup
+    and the Microsoft VC++ x64 redistributable.
 
 .PARAMETER Force
     Redownload archives and reinstall all dependencies.
@@ -60,11 +60,9 @@ $LibYamlVersion = "0.2.5"
 $LibYamlUrl = "https://codeload.github.com/yaml/libyaml/zip/refs/tags/$LibYamlVersion"
 $LibYamlZipSha256 = "14605BAA6DFC0C4D3AB943A46A627413C0388736E453B67FE4E90C9683C8CBC8"
 
-$InnoVersion = "6.7.4"
-$InnoSetupUrl = "https://github.com/jrsoftware/issrc/releases/download/is-6_7_4/innosetup-$InnoVersion.exe"
-$InnoSetupSha256 = "A549929319F9120716677C685535CA4671E4B937B5FDC87E2585F32D8EB30E8C"
-$InnoLanguageUrl = "https://raw.githubusercontent.com/jrsoftware/issrc/is-6_7_4/Files/Languages/Unofficial/ChineseSimplified.isl"
-$InnoLanguageSha256 = "7D544B9BB1D142CFA11F2E5D3CC8ABE2E55F8E066C5124E3772675AA236E1278"
+$NyanSetupVersion = "0.1.0"
+$NyanSetupUrl = "https://github.com/ayaya-any/Nyan-setup/releases/download/v$NyanSetupVersion/nyan-setup.exe"
+$NyanSetupSha256 = "AEE1EC2B0275FA100F46A88F71AE496AB2FF179A867C88470FC2542485F0EE72"
 
 $VCRedistUrl = "https://download.visualstudio.microsoft.com/download/pr/990c720a-46ce-4dc7-87b9-c2eb615d34b9/CC0FF0EB1DC3F5188AE6300FAEF32BF5BEEBA4BDD6E8E445A9184072096B713B/VC_redist.x64.exe"
 $VCRedistSha256 = "CC0FF0EB1DC3F5188AE6300FAEF32BF5BEEBA4BDD6E8E445A9184072096B713B"
@@ -146,7 +144,7 @@ function Reset-ToolDirectory([string]$Directory)
 {
     $target = [System.IO.Path]::GetFullPath($Directory)
     $allowed = @(
-        (Join-Path $ToolsDir "innosetup")
+        (Join-Path $ToolsDir "nyan-setup")
     )
     if ($target -notin $allowed) {
         throw "Refusing to clean an unexpected dependency directory: $target"
@@ -268,48 +266,24 @@ function Install-VCRedist
     Write-Host "  installed $executable"
 }
 
-function Install-InnoSetup
+function Install-NyanSetup
 {
-    $directory = Join-Path $ToolsDir "innosetup"
-    $compiler = Join-Path $directory "ISCC.exe"
-    $marker = Join-Path $directory ".version"
-    $installedVersion = ""
-    if (Test-Path -LiteralPath $marker) {
-        $installedVersion = (Get-Content -LiteralPath $marker -Raw).Trim()
-    }
-    if (-not $Force -and (Test-Path -LiteralPath $compiler) -and
-        $installedVersion -eq $InnoVersion -and
-        (Test-Sha256 (Join-Path $directory "Languages\ChineseSimplified.isl") $InnoLanguageSha256)) {
-        Write-Host "  Inno Setup $InnoVersion (cached)"
+    $directory = Join-Path $ToolsDir "nyan-setup"
+    $executable = Join-Path $directory "nyan-setup.exe"
+    if (-not $Force -and (Test-Sha256 $executable $NyanSetupSha256)) {
+        Write-Host "  Nyan Setup $NyanSetupVersion (cached)"
         return
     }
 
-    Write-Step "Inno Setup $InnoVersion"
-    $setup = Get-DependencyFile -Url $InnoSetupUrl `
-        -FileName "innosetup-$InnoVersion.exe" -Sha256 $InnoSetupSha256
-    $language = Get-DependencyFile -Url $InnoLanguageUrl `
-        -FileName "ChineseSimplified-$InnoVersion.isl" -Sha256 $InnoLanguageSha256
-
+    Write-Step "Nyan Setup $NyanSetupVersion"
+    $download = Get-DependencyFile -Url $NyanSetupUrl `
+        -FileName "nyan-setup-v$NyanSetupVersion.exe" -Sha256 $NyanSetupSha256
     Reset-ToolDirectory $directory
-
-    $log = Join-Path $CacheDir "innosetup-install.log"
-    $arguments = '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- ' +
-        '/PORTABLE=1 /CURRENTUSER /DIR="' + $directory + '" /LOG="' + $log + '"'
-    $process = Start-Process -FilePath $setup -ArgumentList $arguments `
-        -WindowStyle Hidden -Wait -PassThru
-    if ($process.ExitCode -ne 0) {
-        throw "Inno Setup portable installation failed with exit code $($process.ExitCode). See $log"
+    Copy-Item -LiteralPath $download -Destination $executable -Force
+    if (-not (Test-Sha256 $executable $NyanSetupSha256)) {
+        throw "nyan-setup.exe failed SHA256 verification after extraction."
     }
-    if (-not (Test-Path -LiteralPath $compiler)) {
-        throw "Inno Setup was not installed correctly: $compiler"
-    }
-
-    $languages = Join-Path $directory "Languages"
-    New-Item -ItemType Directory -Path $languages -Force | Out-Null
-    Copy-Item -LiteralPath $language `
-        -Destination (Join-Path $languages "ChineseSimplified.isl") -Force
-    [System.IO.File]::WriteAllText($marker, $InnoVersion)
-    Write-Host "  installed $compiler"
+    Write-Host "  installed $executable"
 }
 
 Write-Host "Nyan-Q dependencies"
@@ -321,7 +295,7 @@ Install-LibYaml
 
 if ($Installer) {
     Install-VCRedist
-    Install-InnoSetup
+    Install-NyanSetup
 }
 
 Write-Host ""

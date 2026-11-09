@@ -51,16 +51,10 @@ function Resolve-CMake {
     throw "cmake.exe not found. Install CMake or Visual Studio's CMake tools."
 }
 
-function Resolve-Iscc {
-    $candidates = @(
-        (Join-Path $Root "tools\innosetup\ISCC.exe"),
-        (Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6\ISCC.exe"),
-        (Join-Path $env:ProgramFiles "Inno Setup 6\ISCC.exe")
-    )
-    foreach ($candidate in $candidates) {
-        if ($candidate -and (Test-Path $candidate)) { return $candidate }
-    }
-    throw "ISCC.exe not found. Run scripts\fetch-deps.ps1 -Installer."
+function Resolve-NyanSetup {
+    $candidate = Join-Path $Root "tools\nyan-setup\nyan-setup.exe"
+    if (Test-Path -LiteralPath $candidate) { return $candidate }
+    throw "nyan-setup.exe not found. Run scripts\fetch-deps.ps1 -Installer."
 }
 
 function Find-VisualStudio {
@@ -221,20 +215,124 @@ Write-Host "  $ZipPath ($sizeMb MB)"
 if ($Installer) {
     Write-Host ""
     Write-Host "== Nyan-Q / installer ==" -ForegroundColor Cyan
-    $Iscc = Resolve-Iscc
+    $NyanSetup = Resolve-NyanSetup
     $VCRedist = Join-Path $Root "third_party\vcredist\vc_redist.x64.exe"
     if (-not (Test-Path $VCRedist)) {
         throw "VC++ redistributable not found: $VCRedist"
     }
+
     $SetupPath = Join-Path $DistRoot "Nyan-Q-$Version-win64-setup.exe"
-    if (Test-Path $SetupPath) { Remove-Item -LiteralPath $SetupPath -Force }
-    & $Iscc "/DAppVersion=$Version" "/DPayloadDir=$OutDir" `
-        "/DOutputDir=$DistRoot" "/DVCRedistPath=$VCRedist" `
-        (Join-Path $Root "scripts\installer.iss")
-    if ($LASTEXITCODE -ne 0) { throw "Inno Setup compilation failed." }
-    if (-not (Test-Path $SetupPath)) {
-        throw "Installer was not produced: $SetupPath"
+    $SetupPayload = Join-Path $DistRoot "Nyan-Q-setup-payload"
+    $SetupConfig = Join-Path $DistRoot "Nyan-Q-$Version-package.json"
+    $Icon = Join-Path $Root "resources\icons\app.ico"
+    if (-not $SetupPayload.StartsWith($DistRoot + [System.IO.Path]::DirectorySeparatorChar,
+            [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw "Refusing to clean an unexpected path: $SetupPayload"
     }
+    foreach ($path in @($SetupPayload, $SetupPath, $SetupConfig)) {
+        if (Test-Path -LiteralPath $path) {
+            Remove-Item -LiteralPath $path -Recurse -Force
+        }
+    }
+
+    # Build a clean installer payload. The portable zip keeps docs/examples;
+    # the installer only needs the runtime files plus notices.
+    Copy-Item $OutDir $SetupPayload -Recurse -Force
+    $runtimeDocs = Join-Path $SetupPayload "docs"
+    if (Test-Path -LiteralPath $runtimeDocs) {
+        Remove-Item -LiteralPath $runtimeDocs -Recurse -Force
+    }
+    # windeployqt may copy the redistributable into the portable directory.
+    # The installer bundles it once through the prerequisite action instead.
+    $payloadRedist = Join-Path $SetupPayload "vc_redist.x64.exe"
+    if (Test-Path -LiteralPath $payloadRedist) {
+        Remove-Item -LiteralPath $payloadRedist -Force
+    }
+    Get-ChildItem -LiteralPath $SetupPayload -Recurse -File -Include *.log,*.pdb,package-*.png |
+        Remove-Item -Force -ErrorAction SilentlyContinue
+
+    $licenseText = Get-Content -LiteralPath (Join-Path $Root "LICENSE") -Raw
+    $package = [ordered]@{
+        app_id = "com.nyan-q.app"
+        app_name = "Nyan-Q"
+        app_version = $Version
+        publisher = "Nyan-Q contributors"
+        main_exe = "Nyan-Q.exe"
+        default_install_dir = "%LOCALAPPDATA%\Programs\Nyan-Q"
+        source_dir = $SetupPayload
+        output_exe = $SetupPath
+        installer_icon = $Icon
+        compression_level = 7
+        create_desktop_shortcut = $false
+        create_start_menu_shortcut = $true
+        register_uninstaller = $true
+        auto_launch_after_install = $true
+        process_conflict_policy = "prompt_user"
+        license_text = $licenseText
+        prerequisites = @(
+            [ordered]@{
+                name = "Microsoft VC++ 2015-2022 运行库 (x64)"
+                enabled = $true
+                condition = [ordered]@{
+                    kind = "registry"
+                    root = "hklm"
+                    subkey = "SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64"
+                    value_name = "Installed"
+                    arch_view = "x64"
+                    operator = "equals"
+                    expected = "1"
+                }
+                action = [ordered]@{
+                    kind = "run_bundled_exe"
+                    source_file = $VCRedist
+                    bundled_rel_path = ""
+                    args = "/install /quiet /norestart"
+                    elevate = $true
+                    wait = $true
+                    success_exit_codes = @(0, 1638, 3010)
+                }
+            }
+        )
+    }
+    $package | ConvertTo-Json -Depth 10 |
+        Set-Content -LiteralPath $SetupConfig -Encoding UTF8
+
+    $arguments = @(
+        "pack",
+        "--config", "`"$SetupConfig`"",
+        "--source", "`"$SetupPayload`"",
+        "--output", "`"$SetupPath`"",
+        "--icon", "`"$Icon`""
+    )
+    $packProcess = Start-Process -FilePath $NyanSetup -ArgumentList $arguments `
+        -WindowStyle Hidden -Wait -PassThru
+    if ($packProcess.ExitCode -ne 0 -or -not (Test-Path -LiteralPath $SetupPath)) {
+        throw "Nyan Setup packaging failed (exit $($packProcess.ExitCode))."
+    }
+
+    # Validate the produced self-extracting installer without running the GUI.
+    $verifyDir = Join-Path $env:TEMP ("nyan-q-installer-verify-" + [guid]::NewGuid().ToString("N"))
+    try {
+        $verifyProcess = Start-Process -FilePath $SetupPath `
+            -ArgumentList @("--extract-to", "`"$verifyDir`"") `
+            -WindowStyle Hidden -Wait -PassThru
+        if ($verifyProcess.ExitCode -ne 0 -or
+            -not (Test-Path (Join-Path $verifyDir "Nyan-Q.exe"))) {
+            throw "Nyan Setup self-extract verification failed (exit $($verifyProcess.ExitCode))."
+        }
+    }
+    finally {
+        if (Test-Path -LiteralPath $verifyDir) {
+            Remove-Item -LiteralPath $verifyDir -Recurse -Force
+        }
+        if (Test-Path -LiteralPath $SetupPayload) {
+            Remove-Item -LiteralPath $SetupPayload -Recurse -Force
+        }
+        if (Test-Path -LiteralPath $SetupConfig) {
+            Remove-Item -LiteralPath $SetupConfig -Force
+        }
+    }
+
     $setupSizeMb = [math]::Round((Get-Item $SetupPath).Length / 1MB, 1)
     Write-Host "  $SetupPath ($setupSizeMb MB)" -ForegroundColor Green
 }
