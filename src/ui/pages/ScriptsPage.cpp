@@ -255,6 +255,7 @@ void ScriptsPage::rebuild()
     }
 
     if (scripts.isEmpty()) {
+        m_listLayout->addStretch(1);
         auto* empty = new M3EmptyState(
             QStringLiteral("code"), QStringLiteral("还没有 JavaScript 脚本"),
             QStringLiteral("新建一个脚本，或从本地文件 / HTTPS URL 导入。"
@@ -262,7 +263,7 @@ void ScriptsPage::rebuild()
             m_content);
         auto* action = empty->addAction(QStringLiteral("新建脚本"));
         connect(action, &QAbstractButton::clicked, this, &ScriptsPage::createScript);
-        m_listLayout->addWidget(empty);
+        m_listLayout->addWidget(empty, 0, Qt::AlignHCenter);
     }
 
     m_listLayout->addStretch(1);
