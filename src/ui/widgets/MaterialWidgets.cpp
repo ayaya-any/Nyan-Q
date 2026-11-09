@@ -1176,6 +1176,7 @@ M3EmptyState::M3EmptyState(const QString& glyph, const QString& title, const QSt
     actionLayout->setAlignment(Qt::AlignCenter);
     m_actionHost->setVisible(false);
     layout->addWidget(m_actionHost);
+    updateMinimumHeight();
 }
 
 QAbstractButton* M3EmptyState::addAction(const QString& text, M3Button::Variant variant)
@@ -1184,18 +1185,29 @@ QAbstractButton* M3EmptyState::addAction(const QString& text, M3Button::Variant 
     if (auto* layout = qobject_cast<QHBoxLayout*>(m_actionHost->layout()))
         layout->addWidget(button);
     m_actionHost->setVisible(true);
+    updateMinimumHeight();
     return button;
 }
 
 void M3EmptyState::setTitle(const QString& title)
 {
     m_title->setText(title);
+    updateMinimumHeight();
 }
 
 void M3EmptyState::setSubtitle(const QString& subtitle)
 {
     m_subtitle->setText(subtitle);
     m_subtitle->setVisible(!subtitle.isEmpty());
+    updateMinimumHeight();
+}
+
+void M3EmptyState::updateMinimumHeight()
+{
+    if (!layout())
+        return;
+    layout()->activate();
+    setMinimumHeight(layout()->sizeHint().height());
 }
 
 // ---------------------------------------------------------------------------

@@ -304,6 +304,8 @@ public:
     void setSubtitle(const QString& subtitle);
 
 private:
+    void updateMinimumHeight();
+
     QLabel* m_title = nullptr;
     QLabel* m_subtitle = nullptr;
     M3IconLabel* m_icon = nullptr;
