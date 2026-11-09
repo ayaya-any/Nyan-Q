@@ -122,9 +122,12 @@ ProfileCard::ProfileCard(const cq::ProfileMeta& profile, QWidget* parent)
     actions->setContentsMargins(0, 0, 0, 0);
     actions->setSpacing(5);
     if (!profile.active) {
-        auto* useButton = new M3Button(QStringLiteral("启用"), M3Button::Variant::Tonal, this);
-        useButton->setIconText(QStringLiteral("check"));
-        useButton->setCompact(true);
+        auto* useButton = new M3IconButton(QStringLiteral("check"), this);
+        useButton->setDiameter(32);
+        useButton->setGlyphSize(17);
+        useButton->setKind(M3IconButton::Kind::Tonal);
+        useButton->setToolTip(QStringLiteral("启用这个配置"));
+        useButton->setAccessibleName(QStringLiteral("启用配置 %1").arg(profile.name));
         connect(useButton, &QAbstractButton::clicked, this,
                 [this] { emit activateRequested(m_profile.id); });
         actions->addWidget(useButton, 0, Qt::AlignVCenter);
@@ -153,10 +156,12 @@ ProfileCard::ProfileCard(const cq::ProfileMeta& profile, QWidget* parent)
         actions->addWidget(update);
     }
 
-    auto* createScript = new M3Button(QStringLiteral("创建脚本"), M3Button::Variant::Tonal, this);
-    createScript->setIconText(QStringLiteral("code"));
-    createScript->setCompact(true);
+    auto* createScript = new M3IconButton(QStringLiteral("code"), this);
+    createScript->setDiameter(32);
+    createScript->setGlyphSize(17);
+    createScript->setKind(M3IconButton::Kind::Tonal);
     createScript->setToolTip(QStringLiteral("为这个配置创建专属 JavaScript 覆写脚本"));
+    createScript->setAccessibleName(QStringLiteral("为配置 %1 创建脚本").arg(profile.name));
     connect(createScript, &QAbstractButton::clicked, this,
             [this] { emit createScriptRequested(m_profile.id); });
     actions->addWidget(createScript, 0, Qt::AlignVCenter);
