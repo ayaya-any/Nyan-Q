@@ -3,11 +3,15 @@
 #include "scripts/ScriptTypes.h"
 #include "ui/widgets/MaterialWidgets.h"
 
+class QLabel;
+
 class ScriptCard : public M3Card {
     Q_OBJECT
 
 public:
     explicit ScriptCard(const nq::scripts::ScriptMeta& script, QWidget* parent = nullptr);
+
+    void setAssociationText(const QString& text, const QString& tooltip = {});
 
 signals:
     void editRequested(const QString& id);
@@ -25,4 +29,5 @@ protected:
 
 private:
     nq::scripts::ScriptMeta m_script;
+    QLabel* m_association = nullptr;
 };

@@ -20,6 +20,7 @@ public:
 
     void refresh();
     void openScriptEditor(const QString& id) { openEditor(id); }
+    void createScriptForProfile(const QString& profileId);
 
 private:
     void buildUi();

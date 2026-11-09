@@ -185,6 +185,8 @@ void ProfilesPage::rebuild()
         connect(card, &ProfileCard::editRequested, this, [this, profile](const QString&) {
             editProfile(profile);
         });
+        connect(card, &ProfileCard::createScriptRequested, this,
+                [this](const QString& id) { emit createScriptRequested(id); });
         connect(card, &ProfileCard::deleteRequested, this, [this, profile] {
             requestDelete(profile);
         });

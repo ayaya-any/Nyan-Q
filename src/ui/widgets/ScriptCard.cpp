@@ -100,6 +100,9 @@ ScriptCard::ScriptCard(const ScriptMeta& script, QWidget* parent)
     auto* order = new QLabel(QStringLiteral("顺序 %1").arg(script.order), this);
     order->setProperty("role", "micro");
     metaRow->addWidget(order);
+    m_association = new QLabel(this);
+    m_association->setProperty("role", "micro");
+    metaRow->addWidget(m_association);
     auto* hash = new QLabel(
         QStringLiteral("SHA-256 %1").arg(script.clientSha256.left(12)), this);
     hash->setProperty("role", "micro");
@@ -216,6 +219,15 @@ ScriptCard::ScriptCard(const ScriptMeta& script, QWidget* parent)
     actions->addWidget(remove);
 
     root->addLayout(actions, 0);
+}
+
+void ScriptCard::setAssociationText(const QString& text, const QString& tooltip)
+{
+    if (!m_association)
+        return;
+    m_association->setText(text);
+    m_association->setToolTip(tooltip.isEmpty() ? text : tooltip);
+    m_association->setVisible(!text.isEmpty());
 }
 
 void ScriptCard::paintEvent(QPaintEvent* event)

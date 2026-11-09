@@ -45,10 +45,7 @@ void ScriptsPage::buildUi()
     listRoot->setContentsMargins(32, 18, 32, 22);
     listRoot->setSpacing(14);
 
-    m_header = new PageHeader(QStringLiteral("脚本覆写"),
-                              QStringLiteral("用 JavaScript 修改 Mihomo 订阅配置。"
-                                             "脚本在独立 QuickJS 沙箱中执行。"),
-                              m_listPage);
+    m_header = new PageHeader(QStringLiteral("脚本"), {}, m_listPage);
     m_busyPill = new M3Pill(QStringLiteral("正在检查更新"), m_listPage);
     m_busyPill->setTone(M3Pill::Tone::Warning);
     m_busyPill->setDot(true);
@@ -187,6 +184,42 @@ void ScriptsPage::rebuild()
                          return QString::localeAwareCompare(a.name, b.name) < 0;
                      });
 
+    const QVector<cq::ProfileMeta> profiles = m_controller->profileStore()->profiles();
+    const ScriptBindingManager& bindings = m_controller->scriptManager()->bindings();
+    const auto associationFor = [&](const ScriptMeta& script) {
+        if (bindings.isGlobalEnabled(script.id)) {
+            QStringList excluded;
+            for (const cq::ProfileMeta& profile : profiles) {
+                if (bindings.isProfileExcluded(script.id, profile.id))
+                    excluded.append(profile.name);
+            }
+            return qMakePair(QStringLiteral("关联：全局"),
+                             excluded.isEmpty()
+                                 ? QStringLiteral("全局脚本，适用于所有配置")
+                                 : QStringLiteral("全局脚本；排除：%1")
+                                       .arg(excluded.join(QStringLiteral("、"))));
+        }
+
+        QStringList names;
+        for (const cq::ProfileMeta& profile : profiles) {
+            if (bindings.isEffective(script.id, profile.id))
+                names.append(profile.name);
+        }
+        if (names.isEmpty()) {
+            return qMakePair(QStringLiteral("关联：未关联"),
+                             QStringLiteral("当前脚本不会在任何配置上执行"));
+        }
+        QString label;
+        if (names.size() > 2) {
+            label = QStringLiteral("关联：%1、%2 等 %3 个")
+                        .arg(names.at(0), names.at(1))
+                        .arg(names.size());
+        } else {
+            label = QStringLiteral("关联：%1").arg(names.join(QStringLiteral("、")));
+        }
+        return qMakePair(label, names.join(QStringLiteral("、")));
+    };
+
     int enabled = 0;
     int remote = 0;
     for (const ScriptMeta& script : scripts) {
@@ -195,6 +228,8 @@ void ScriptsPage::rebuild()
         if (script.remote())
             ++remote;
         auto* card = new ScriptCard(script, m_content);
+        const auto association = associationFor(script);
+        card->setAssociationText(association.first, association.second);
         connect(card, &ScriptCard::editRequested, this, &ScriptsPage::openEditor);
         connect(card, &ScriptCard::deleteRequested, this, &ScriptsPage::deleteScript);
         connect(card, &ScriptCard::bindingsRequested, this, &ScriptsPage::openBindings);
@@ -283,6 +318,41 @@ void ScriptsPage::createScript()
     if (id.isEmpty()) {
         setFeedback(error, true);
         return;
+    }
+    rebuild();
+    openEditor(id);
+}
+
+void ScriptsPage::createScriptForProfile(const QString& profileId)
+{
+    const auto profile = m_controller->profileStore()->find(profileId);
+    if (!profile) {
+        setFeedback(QStringLiteral("找不到这个配置"), true);
+        return;
+    }
+
+    ScriptNameDialog nameDialog(window(), QStringLiteral("%1 · 脚本").arg(profile->name));
+    if (nameDialog.exec() != QDialog::Accepted)
+        return;
+
+    ScriptManager* manager = m_controller->scriptManager();
+    QString error;
+    const QString id = manager->createLocalScript(
+        nameDialog.scriptName(), QStringLiteral("由配置「%1」创建").arg(profile->name),
+        QString(), &error);
+    if (id.isEmpty()) {
+        setFeedback(error, true);
+        return;
+    }
+
+    // Scripts created from a profile card are strongly scoped to that profile:
+    // they never run for other subscriptions unless the user later changes the
+    // binding explicitly.
+    if (!manager->setGlobalBinding(id, false, &error) ||
+        !manager->setProfileBinding(id, profile->id, true, &error)) {
+        setFeedback(error, true);
+    } else {
+        setFeedback(QStringLiteral("已为「%1」创建专属脚本").arg(profile->name), false);
     }
     rebuild();
     openEditor(id);

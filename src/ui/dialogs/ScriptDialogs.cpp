@@ -155,7 +155,7 @@ void ScriptUrlDialog::tryAccept()
     accept();
 }
 
-ScriptNameDialog::ScriptNameDialog(QWidget* parent)
+ScriptNameDialog::ScriptNameDialog(QWidget* parent, const QString& initialName)
     : MaterialDialog(parent, QStringLiteral("新建 JavaScript 脚本"),
                      QStringLiteral("脚本会先保存到本机，随后可以编辑、测试和关联订阅。"))
 {
@@ -164,6 +164,7 @@ ScriptNameDialog::ScriptNameDialog(QWidget* parent)
     m_name = new QLineEdit(this);
     m_name->setPlaceholderText(QStringLiteral("例如：统一 DNS 与规则"));
     m_name->setMaxLength(80);
+    m_name->setText(initialName);
     contentLayout()->addWidget(m_name);
 
     auto* cancel = new M3Button(QStringLiteral("取消"), M3Button::Variant::Text, this);
@@ -184,6 +185,8 @@ ScriptNameDialog::ScriptNameDialog(QWidget* parent)
             accept();
     });
     m_name->setFocus();
+    if (!initialName.isEmpty())
+        m_name->selectAll();
 }
 
 QString ScriptNameDialog::scriptName() const

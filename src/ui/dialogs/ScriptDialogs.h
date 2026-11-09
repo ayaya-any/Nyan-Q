@@ -49,7 +49,7 @@ class ScriptNameDialog final : public MaterialDialog {
     Q_OBJECT
 
 public:
-    explicit ScriptNameDialog(QWidget* parent = nullptr);
+    explicit ScriptNameDialog(QWidget* parent = nullptr, const QString& initialName = {});
 
     QString scriptName() const;
 

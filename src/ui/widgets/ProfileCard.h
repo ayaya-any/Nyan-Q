@@ -14,6 +14,7 @@ signals:
     void updateRequested(const QString& id);
     void editRequested(const QString& id);
     void deleteRequested(const QString& id);
+    void createScriptRequested(const QString& id);
 
 protected:
     void paintEvent(QPaintEvent* event) override;

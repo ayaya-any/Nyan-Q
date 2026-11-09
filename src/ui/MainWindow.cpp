@@ -233,6 +233,12 @@ void MainWindow::buildUi()
     connect(m_proxies, &ProxiesPage::navigateRequested, this, &MainWindow::setCurrentPage);
     connect(m_profiles, &ProfilesPage::editConfigRequested, this,
             &MainWindow::openConfigEditor);
+    connect(m_profiles, &ProfilesPage::createScriptRequested, this,
+            [this](const QString& profileId) {
+                setCurrentPage(6);
+                if (m_scriptsPage)
+                    m_scriptsPage->createScriptForProfile(profileId);
+            });
     connect(m_titleBar, &TitleBar::minimizeRequested, this, &QWidget::showMinimized);
     connect(m_titleBar, &TitleBar::maximizeRequested, this, &MainWindow::toggleMaximize);
     connect(m_titleBar, &TitleBar::closeRequested, this, &QWidget::close);

@@ -23,6 +23,7 @@ public:
 
 signals:
     void editConfigRequested(const QString& profileId);
+    void createScriptRequested(const QString& profileId);
 
 private:
     void buildUi();

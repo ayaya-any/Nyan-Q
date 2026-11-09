@@ -153,6 +153,14 @@ ProfileCard::ProfileCard(const cq::ProfileMeta& profile, QWidget* parent)
         actions->addWidget(update);
     }
 
+    auto* createScript = new M3Button(QStringLiteral("创建脚本"), M3Button::Variant::Tonal, this);
+    createScript->setIconText(QStringLiteral("code"));
+    createScript->setCompact(true);
+    createScript->setToolTip(QStringLiteral("为这个配置创建专属 JavaScript 覆写脚本"));
+    connect(createScript, &QAbstractButton::clicked, this,
+            [this] { emit createScriptRequested(m_profile.id); });
+    actions->addWidget(createScript, 0, Qt::AlignVCenter);
+
     auto* edit = new M3IconButton(QStringLiteral("edit"), this);
     edit->setDiameter(32);
     edit->setGlyphSize(17);
