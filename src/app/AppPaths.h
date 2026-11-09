@@ -8,6 +8,7 @@ namespace AppPaths {
 // "portable.flag" beside the executable switches to <exe>/data as well.
 QString dataDir();
 QString profilesDir();
+QString scriptsDir();
 QString runtimeDir();
 QString settingsFile();
 QString logFile();

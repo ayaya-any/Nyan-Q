@@ -58,6 +58,11 @@ QString profilesDir()
     return dataDir() + QStringLiteral("/profiles");
 }
 
+QString scriptsDir()
+{
+    return dataDir() + QStringLiteral("/scripts");
+}
+
 QString runtimeDir()
 {
     return dataDir() + QStringLiteral("/runtime");
@@ -86,6 +91,7 @@ QString coreLogFile()
 void ensureDirectories()
 {
     QDir().mkpath(profilesDir());
+    QDir().mkpath(scriptsDir());
     QDir().mkpath(runtimeDir());
 }
 

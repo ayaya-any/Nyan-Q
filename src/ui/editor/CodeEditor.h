@@ -14,7 +14,12 @@ class CodeEditor final : public QPlainTextEdit {
     Q_OBJECT
 
 public:
+    enum class SyntaxMode { Yaml, JavaScript };
+
     explicit CodeEditor(QWidget* parent = nullptr);
+
+    void setSyntaxMode(SyntaxMode mode);
+    SyntaxMode syntaxMode() const { return m_syntaxMode; }
 
     int lineNumberAreaWidth() const;
     void lineNumberAreaPaintEvent(QPaintEvent* event);
@@ -56,4 +61,5 @@ private:
     QListWidget* m_completionPopup = nullptr;
     QSyntaxHighlighter* m_highlighter = nullptr;
     QVector<LspDiagnostic> m_diagnostics;
+    SyntaxMode m_syntaxMode = SyntaxMode::Yaml;
 };

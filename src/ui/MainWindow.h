@@ -13,6 +13,7 @@ class M3Snackbar;
 class ProfilesPage;
 class ProxiesPage;
 class RulesPage;
+class ScriptsPage;
 class SettingsPage;
 class QAction;
 class QActionGroup;
@@ -77,6 +78,7 @@ private:
     ConnectionsPage* m_connections = nullptr;
     RulesPage* m_rules = nullptr;
     LogsPage* m_logs = nullptr;
+    ScriptsPage* m_scriptsPage = nullptr;
     SettingsPage* m_settings = nullptr;
     M3Snackbar* m_snackbar = nullptr;
     QWidget* m_resizeHandles[8] = {};

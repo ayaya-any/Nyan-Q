@@ -123,6 +123,7 @@ Sidebar::Sidebar(QWidget* parent)
         {QStringLiteral("device_hub"), QStringLiteral("连接")},
         {QStringLiteral("rule"), QStringLiteral("规则")},
         {QStringLiteral("terminal"), QStringLiteral("日志")},
+        {QStringLiteral("code"), QStringLiteral("脚本")},
     };
     for (int i = 0; i < nav.size(); ++i) {
         QAbstractButton* item = addNavItem(m_navGroup, i, nav.at(i).first, nav.at(i).second);
@@ -131,7 +132,7 @@ Sidebar::Sidebar(QWidget* parent)
 
     root->addStretch(1);
 
-    auto* settings = addNavItem(m_navGroup, 6, QStringLiteral("settings"), QStringLiteral("设置"));
+    auto* settings = addNavItem(m_navGroup, 7, QStringLiteral("settings"), QStringLiteral("设置"));
     root->addWidget(settings);
     root->addSpacing(10);
 

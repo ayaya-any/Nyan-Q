@@ -7,7 +7,9 @@
 #include "core/ClashController.h"
 #include "ui/MainWindow.h"
 #include "ui/editor/CodeEditor.h"
+#include "ui/dialogs/ScriptDialogs.h"
 #include "ui/pages/ProfilesPage.h"
+#include "ui/pages/ScriptsPage.h"
 
 #include <QApplication>
 #include <QCommandLineParser>
@@ -42,13 +44,14 @@ constexpr int kPageProfiles = 2;
 constexpr int kPageConnections = 3;
 constexpr int kPageRules = 4;
 constexpr int kPageLogs = 5;
-constexpr int kPageSettings = 6;
+constexpr int kPageScripts = 6;
+constexpr int kPageSettings = 7;
 
 int parsePage(const QString& raw)
 {
     bool ok = false;
     const int number = raw.toInt(&ok);
-    if (ok && number >= 0 && number <= 6)
+    if (ok && number >= 0 && number <= 7)
         return number;
     const QString lower = raw.trimmed().toLower();
     if (lower == QStringLiteral("dashboard") || lower == QStringLiteral("home"))
@@ -63,6 +66,8 @@ int parsePage(const QString& raw)
         return kPageRules;
     if (lower == QStringLiteral("logs") || lower == QStringLiteral("log"))
         return kPageLogs;
+    if (lower == QStringLiteral("scripts") || lower == QStringLiteral("script"))
+        return kPageScripts;
     if (lower == QStringLiteral("settings") || lower == QStringLiteral("setting"))
         return kPageSettings;
     return -1;
@@ -131,7 +136,7 @@ int main(int argc, char* argv[])
         QStringLiteral("以演示模式启动，截图到指定 PNG 文件后退出。"), QStringLiteral("path"));
     QCommandLineOption pageOption(
         QStringLiteral("page"),
-        QStringLiteral("启动时显示的页面：dashboard/proxies/profiles/connections/rules/logs/settings 或 0-6。"),
+        QStringLiteral("启动时显示的页面：dashboard/proxies/profiles/connections/rules/logs/scripts/settings 或 0-7。"),
         QStringLiteral("page"));
     QCommandLineOption autostartOption(QStringLiteral("autostart"),
                                        QStringLiteral("由系统启动项调用（保留参数）。"));
@@ -144,6 +149,14 @@ int main(int argc, char* argv[])
     QCommandLineOption editorScreenshotOption(
         QStringLiteral("screenshot-editor"),
         QStringLiteral("以演示模式打开当前配置编辑器并截图到 PNG 后退出（开发用途）。"),
+        QStringLiteral("path"));
+    QCommandLineOption scriptScreenshotOption(
+        QStringLiteral("screenshot-script"),
+        QStringLiteral("以演示模式打开脚本编辑器并截图到 PNG 后退出（开发用途）。"),
+        QStringLiteral("path"));
+    QCommandLineOption scriptTestScreenshotOption(
+        QStringLiteral("screenshot-script-test"),
+        QStringLiteral("以演示模式运行脚本测试对话框并截图到 PNG 后退出（开发用途）。"),
         QStringLiteral("path"));
     QCommandLineOption enableTunOption(
         QStringLiteral("enable-tun"),
@@ -164,6 +177,8 @@ int main(int argc, char* argv[])
     parser.addOption(demoOption);
     parser.addOption(screenshotOption);
     parser.addOption(editorScreenshotOption);
+    parser.addOption(scriptScreenshotOption);
+    parser.addOption(scriptTestScreenshotOption);
     parser.addOption(pageOption);
     parser.addOption(autostartOption);
     parser.addOption(smokeOption);
@@ -176,13 +191,18 @@ int main(int argc, char* argv[])
 
     const bool screenshot = parser.isSet(screenshotOption);
     const bool editorScreenshot = parser.isSet(editorScreenshotOption);
+    const bool scriptScreenshot = parser.isSet(scriptScreenshotOption);
+    const bool scriptTestScreenshot = parser.isSet(scriptTestScreenshotOption);
     const bool smokeTest = parser.isSet(smokeOption);
-    const bool demo = parser.isSet(demoOption) || screenshot || editorScreenshot;
+    const bool demo = parser.isSet(demoOption) || screenshot || editorScreenshot || scriptScreenshot ||
+                      scriptTestScreenshot;
     const bool enableTun = parser.isSet(enableTunOption);
     const bool relaunchElevated = parser.isSet(relaunchElevatedOption);
     const bool startHiddenRequested = parser.isSet(startHiddenOption);
     const QString screenshotPath = parser.value(screenshotOption);
     const QString editorScreenshotPath = parser.value(editorScreenshotOption);
+    const QString scriptScreenshotPath = parser.value(scriptScreenshotOption);
+    const QString scriptTestScreenshotPath = parser.value(scriptTestScreenshotOption);
     Q_UNUSED(autostartOption)
 
     if (!demo && !smokeTest && parser.isSet(dataDirOption)) {
@@ -256,6 +276,25 @@ int main(int argc, char* argv[])
 
     ClashController controller;
     controller.initialize(demo, smokeTest);
+
+    if (smokeTest) {
+        QString scriptError;
+        const QString scriptId = controller.scriptManager()->createLocalScript(
+            QStringLiteral("smoke-script"), QStringLiteral("integration smoke test"),
+            QStringLiteral(
+                "function main(config, profileName) {\n"
+                "    console.log(\"smoke script\", profileName);\n"
+                "    const rules = Array.isArray(config.rules) ? config.rules : [];\n"
+                "    const rule = \"DOMAIN-SUFFIX,script.invalid,DIRECT\";\n"
+                "    if (!rules.includes(rule)) rules.unshift(rule);\n"
+                "    config.rules = rules;\n"
+                "    return config;\n"
+                "}\n"),
+            &scriptError);
+        if (scriptId.isEmpty()) {
+            QTextStream(stderr) << "SMOKE_SCRIPT_SETUP_FAILED " << scriptError << Qt::endl;
+        }
+    }
 
     if (enableTun && !demo && !smokeTest) {
         if (controller.isElevated()) {
@@ -372,11 +411,17 @@ int main(int argc, char* argv[])
                                                          return rule.payload ==
                                                                 QStringLiteral("smoke.invalid");
                                                      });
+                                     const bool scriptApplied =
+                                         std::any_of(rules.cbegin(), rules.cend(),
+                                                     [](const cq::RuleInfo& rule) {
+                                                         return rule.payload ==
+                                                                QStringLiteral("script.invalid");
+                                                     });
                                      const bool ok = !controller.coreVersion().isEmpty() &&
                                                      !groups.isEmpty() && !rules.isEmpty() &&
                                                      !apiError && processStable &&
                                                      hotReloadSaveOk && settingsHotApplyOk &&
-                                                     ruleApplied;
+                                                     ruleApplied && scriptApplied;
                                      out << (ok ? "SMOKE_OK" : "SMOKE_FAIL")
                                          << " version=" << controller.coreVersion()
                                          << " groups=" << groups.size()
@@ -388,7 +433,8 @@ int main(int argc, char* argv[])
                                          << " pidAfter=" << pidAfterReload
                                          << " processStable=" << processStable
                                          << " settingsHotApply=" << settingsHotApplyOk
-                                         << " ruleApplied=" << ruleApplied << Qt::endl;
+                                         << " ruleApplied=" << ruleApplied
+                                         << " scriptApplied=" << scriptApplied << Qt::endl;
                                      for (const auto& group : groups)
                                          out << "GROUP " << group.name << " nodes="
                                              << group.nodes.size() << " now=" << group.now
@@ -451,6 +497,70 @@ int main(int argc, char* argv[])
             }
             window.showFromTray();
         });
+    }
+
+    if (scriptScreenshot) {
+        window.setCurrentPage(kPageScripts);
+        window.show();
+        QTimer::singleShot(500, &window, [&] {
+            auto* scriptsPage = window.findChild<ScriptsPage*>();
+            const auto scripts = controller.scriptManager()->scripts();
+            if (!scriptsPage || scripts.isEmpty()) {
+                QTextStream(stdout) << "SCREENSHOT_FAILED script editor not available\n";
+                QCoreApplication::exit(2);
+                return;
+            }
+            scriptsPage->openScriptEditor(scripts.first().id);
+        });
+        QTimer::singleShot(1800, &app, [&] {
+            const QFileInfo info(scriptScreenshotPath);
+            if (!info.absolutePath().isEmpty())
+                QDir().mkpath(info.absolutePath());
+            const bool ok = window.grab().save(scriptScreenshotPath, "PNG");
+            QTextStream out(stdout);
+            out << (ok ? "SCREENSHOT_OK " : "SCREENSHOT_FAILED ") << scriptScreenshotPath
+                << Qt::endl;
+            QTimer::singleShot(0, &app, [&app, ok] { QCoreApplication::exit(ok ? 0 : 2); });
+        });
+        return app.exec();
+    }
+
+    if (scriptTestScreenshot) {
+        window.setCurrentPage(kPageScripts);
+        window.show();
+        QTimer::singleShot(500, &window, [&] {
+            const auto scripts = controller.scriptManager()->scripts();
+            if (scripts.isEmpty()) {
+                QTextStream(stdout) << "SCREENSHOT_FAILED script test not available\n";
+                QCoreApplication::exit(2);
+                return;
+            }
+            QString error;
+            const QByteArray source =
+                controller.scriptManager()->content(scripts.first().id, &error);
+            if (!error.isEmpty()) {
+                QTextStream(stdout) << "SCREENSHOT_FAILED " << error << "\n";
+                QCoreApplication::exit(2);
+                return;
+            }
+            auto* realDialog = new ScriptTestDialog(&controller, scripts.first().name, source,
+                                                    &window);
+            realDialog->show();
+            QTimer::singleShot(250, realDialog, [realDialog] {
+                realDialog->startTestForScreenshot();
+            });
+            QTimer::singleShot(1800, &app, [&, realDialog] {
+                const QFileInfo info(scriptTestScreenshotPath);
+                if (!info.absolutePath().isEmpty())
+                    QDir().mkpath(info.absolutePath());
+                const bool ok = realDialog->grab().save(scriptTestScreenshotPath, "PNG");
+                QTextStream out(stdout);
+                out << (ok ? "SCREENSHOT_OK " : "SCREENSHOT_FAILED ")
+                    << scriptTestScreenshotPath << Qt::endl;
+                QTimer::singleShot(0, &app, [&app, ok] { QCoreApplication::exit(ok ? 0 : 2); });
+            });
+        });
+        return app.exec();
     }
 
     if (editorScreenshot) {

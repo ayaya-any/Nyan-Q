@@ -113,6 +113,136 @@ private:
     QTextCharFormat m_punctuation;
     QTextCharFormat m_comment;
 };
+class JavaScriptSyntaxHighlighter final : public QSyntaxHighlighter {
+public:
+    explicit JavaScriptSyntaxHighlighter(QTextDocument* document)
+        : QSyntaxHighlighter(document)
+    {
+        refresh();
+        connect(&Theme::instance(), &Theme::changed, this, [this] {
+            refresh();
+            rehighlight();
+        });
+    }
+
+    void refresh()
+    {
+        const Palette& p = pal();
+        m_keyword.setForeground(p.primary);
+        m_keyword.setFontWeight(QFont::DemiBold);
+        m_string.setForeground(p.tertiary);
+        m_number.setForeground(p.secondary);
+        m_comment.setForeground(p.onSurfaceVariant);
+        m_comment.setFontItalic(true);
+        m_punctuation.setForeground(p.onSurfaceVariant);
+        m_function.setForeground(p.secondary);
+    }
+
+protected:
+    void highlightBlock(const QString& text) override
+    {
+        static const QRegularExpression keywordPattern(
+            QStringLiteral("\\b(?:function|const|let|var|return|if|else|for|while|do|switch|"
+                           "case|break|continue|new|typeof|instanceof|in|of|class|extends|"
+                           "super|this|try|catch|finally|throw|async|await|yield|delete|void|"
+                           "true|false|null|undefined)\\b"));
+        static const QRegularExpression numberPattern(
+            QStringLiteral("\\b(?:0[xX][0-9a-fA-F]+|\\d+(?:\\.\\d+)?(?:[eE][-+]?\\d+)?)\\b"));
+        static const QRegularExpression functionPattern(
+            QStringLiteral("\\b[A-Za-z_$][A-Za-z0-9_$]*(?=\\s*\\()"));
+        static const QRegularExpression punctuationPattern(
+            QStringLiteral("[{}\\[\\]();,]"));
+        static const QRegularExpression stringPattern(
+            QStringLiteral("\"(?:[^\"\\\\]|\\\\.)*\"|'(?:[^'\\\\]|\\\\.)*'|`(?:[^`\\\\]|\\\\.)*`"));
+
+        const Palette& p = pal();
+        m_comment.setForeground(p.onSurfaceVariant);
+
+        int state = previousBlockState();
+        int index = 0;
+        if (state == 1) {
+            const int end = text.indexOf(QStringLiteral("*/"));
+            if (end < 0) {
+                setFormat(0, text.size(), m_comment);
+                setCurrentBlockState(1);
+                return;
+            }
+            setFormat(0, end + 2, m_comment);
+            index = end + 2;
+            state = 0;
+        }
+
+        // Strings first, then keywords/numbers only outside strings and comments.
+        QVector<bool> masked(text.size(), false);
+        auto it = stringPattern.globalMatch(text, index);
+        while (it.hasNext()) {
+            const auto match = it.next();
+            setFormat(match.capturedStart(), match.capturedLength(), m_string);
+            for (int i = match.capturedStart();
+                 i < match.capturedStart() + match.capturedLength() && i < masked.size(); ++i)
+                masked[i] = true;
+        }
+
+        const auto apply = [&](const QRegularExpression& pattern, const QTextCharFormat& format) {
+            auto matches = pattern.globalMatch(text, index);
+            while (matches.hasNext()) {
+                const auto match = matches.next();
+                if (match.capturedStart() < masked.size() && masked.at(match.capturedStart()))
+                    continue;
+                setFormat(match.capturedStart(), match.capturedLength(), format);
+            }
+        };
+        apply(keywordPattern, m_keyword);
+        apply(numberPattern, m_number);
+        apply(functionPattern, m_function);
+        apply(punctuationPattern, m_punctuation);
+
+        // Line comments and block comment starts.
+        bool inSingle = false;
+        bool inDouble = false;
+        bool inTemplate = false;
+        for (int i = index; i < text.size(); ++i) {
+            const QChar ch = text.at(i);
+            if (ch == QLatin1Char('\\')) {
+                ++i;
+                continue;
+            }
+            if (ch == QLatin1Char('\'') && !inDouble && !inTemplate)
+                inSingle = !inSingle;
+            else if (ch == QLatin1Char('"') && !inSingle && !inTemplate)
+                inDouble = !inDouble;
+            else if (ch == QLatin1Char('`') && !inSingle && !inDouble)
+                inTemplate = !inTemplate;
+            if (inSingle || inDouble || inTemplate)
+                continue;
+            if (ch == QLatin1Char('/') && i + 1 < text.size()) {
+                if (text.at(i + 1) == QLatin1Char('/')) {
+                    setFormat(i, text.size() - i, m_comment);
+                    break;
+                }
+                if (text.at(i + 1) == QLatin1Char('*')) {
+                    const int end = text.indexOf(QStringLiteral("*/"), i + 2);
+                    if (end < 0) {
+                        setFormat(i, text.size() - i, m_comment);
+                        setCurrentBlockState(1);
+                    } else {
+                        setFormat(i, end + 2 - i, m_comment);
+                        i = end + 1;
+                    }
+                }
+            }
+        }
+    }
+
+private:
+    QTextCharFormat m_keyword;
+    QTextCharFormat m_string;
+    QTextCharFormat m_number;
+    QTextCharFormat m_comment;
+    QTextCharFormat m_punctuation;
+    QTextCharFormat m_function;
+};
+
 }  // namespace
 
 class LineNumberArea final : public QWidget {
@@ -151,8 +281,7 @@ CodeEditor::CodeEditor(QWidget* parent)
     m_highlighter = new YamlSyntaxHighlighter(document());
 
     connect(this, &QPlainTextEdit::blockCountChanged, this,
-            &CodeEditor::updateLineNumberAreaWidth);
-    connect(this, &QPlainTextEdit::updateRequest, this, &CodeEditor::updateLineNumberArea);
+            &CodeEditor::updateLineNumberAreaWidth);    connect(this, &QPlainTextEdit::updateRequest, this, &CodeEditor::updateLineNumberArea);
     connect(this, &QPlainTextEdit::cursorPositionChanged, this, [this] {
         highlightCurrentLine();
         emit cursorInfoChanged(currentLine(), currentColumn());
@@ -166,6 +295,21 @@ CodeEditor::CodeEditor(QWidget* parent)
     updateLineNumberAreaWidth();
     updateEditorPalette();
     highlightCurrentLine();
+}
+
+void CodeEditor::setSyntaxMode(SyntaxMode mode)
+{
+    if (m_syntaxMode == mode && m_highlighter)
+        return;
+    m_syntaxMode = mode;
+    delete m_highlighter;
+    m_highlighter = mode == SyntaxMode::JavaScript
+                        ? static_cast<QSyntaxHighlighter*>(
+                              new JavaScriptSyntaxHighlighter(document()))
+                        : static_cast<QSyntaxHighlighter*>(new YamlSyntaxHighlighter(document()));
+    if (m_highlighter)
+        m_highlighter->rehighlight();
+    update();
 }
 
 void CodeEditor::updateEditorPalette()
@@ -629,8 +773,10 @@ void CodeEditor::insertLine(bool below)
 
 void CodeEditor::toggleComment()
 {
-    const QString prefix = QStringLiteral("# ");
-    const QString marker = QStringLiteral("#");
+    const bool javascript = m_syntaxMode == SyntaxMode::JavaScript;
+    const QString prefix = javascript ? QStringLiteral("// ") : QStringLiteral("# ");
+    const QString marker = javascript ? QStringLiteral("//") : QStringLiteral("#");
+    const int markerLength = marker.size();
     QTextCursor cursor = textCursor();
     const int start = cursor.selectionStart();
     const int end = cursor.selectionEnd();
@@ -663,7 +809,7 @@ void CodeEditor::toggleComment()
         QTextCursor lineCursor(block);
         lineCursor.setPosition(block.position() + indent);
         if (allCommented) {
-            lineCursor.movePosition(QTextCursor::Right, QTextCursor::KeepAnchor, 1);
+            lineCursor.movePosition(QTextCursor::Right, QTextCursor::KeepAnchor, markerLength);
             lineCursor.removeSelectedText();
             if (lineCursor.block().text().mid(indent).startsWith(QLatin1Char(' ')))
                 lineCursor.deleteChar();
@@ -722,8 +868,14 @@ void CodeEditor::autoIndentNewline()
     const QString line = cursor.block().text();
     QString indent = line.left(line.size() - line.trimmed().size());
     const QString trimmed = line.trimmed();
-    if (trimmed.endsWith(QLatin1Char(':')) || trimmed == QLatin1String("-"))
+    if (m_syntaxMode == SyntaxMode::JavaScript) {
+        if (trimmed.endsWith(QLatin1Char('{')) || trimmed.endsWith(QLatin1Char('(')) ||
+            trimmed.endsWith(QLatin1Char('['))) {
+            indent += QStringLiteral("  ");
+        }
+    } else if (trimmed.endsWith(QLatin1Char(':')) || trimmed == QLatin1String("-")) {
         indent += QStringLiteral("  ");
+    }
     cursor.insertText(QLatin1Char('\n') + indent);
     setTextCursor(cursor);
 }

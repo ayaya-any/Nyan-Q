@@ -5,9 +5,10 @@
 
 .DESCRIPTION
     The repository intentionally does not track the Mihomo core, Wintun,
-    the YAML language server, Inno Setup or the VC++ redistributable.
+    libyaml, the YAML language server, Inno Setup or the VC++ redistributable.
     This script fetches the pinned versions into tools/ and third_party/
-    (both ignored by Git) and verifies package checksums.
+    (both ignored by Git) and verifies package checksums. QuickJS-ng is
+    fetched separately by CMake FetchContent.
 
     Downloaded archives are cached under .cache/deps so repeated builds do
     not need to hit the network again. Pass -Force to redownload and
@@ -52,6 +53,12 @@ $WintunVersion = "0.14.1"
 $WintunUrl = "https://www.wintun.net/builds/wintun-$WintunVersion.zip"
 $WintunZipSha256 = "07C256185D6EE3652E09FA55C0B673E2624B565E02C4B9091C79CA7D2F24EF51"
 $WintunDllSha256 = "E5DA8447DC2C320EDC0FC52FA01885C103DE8C118481F683643CACC3220DAFCE"
+
+# libyaml backs the order-preserving Mihomo configuration DOM used by the
+# JavaScript override pipeline. QuickJS itself is fetched by CMake FetchContent.
+$LibYamlVersion = "0.2.5"
+$LibYamlUrl = "https://codeload.github.com/yaml/libyaml/zip/refs/tags/$LibYamlVersion"
+$LibYamlZipSha256 = "14605BAA6DFC0C4D3AB943A46A627413C0388736E453B67FE4E90C9683C8CBC8"
 
 $YamlLspVersion = "0.1.0"
 $YamlLspUrl = "https://github.com/ayaya-any/yaml-language-server-rust/releases/download/v$YamlLspVersion/yaml-language-server-v$YamlLspVersion-windows-x64.zip"
@@ -199,6 +206,54 @@ function Install-Wintun
     Write-Host "  installed $library"
 }
 
+function Install-LibYaml
+{
+    $directory = Join-Path $ThirdPartyDir "libyaml"
+    $header = Join-Path $directory "include\yaml.h"
+    $scanner = Join-Path $directory "src\scanner.c"
+    if (-not $Force -and (Test-Path -LiteralPath $header) -and
+        (Test-Path -LiteralPath $scanner)) {
+        Write-Host "  libyaml $LibYamlVersion (cached)"
+        return
+    }
+
+    Write-Step "libyaml $LibYamlVersion"
+    $archive = Get-DependencyFile -Url $LibYamlUrl `
+        -FileName "libyaml-$LibYamlVersion.zip" -Sha256 $LibYamlZipSha256
+    $extractRoot = Join-Path $CacheDir "libyaml-$LibYamlVersion"
+    if (Test-Path -LiteralPath $extractRoot) {
+        Remove-Item -LiteralPath $extractRoot -Recurse -Force
+    }
+    Expand-Archive -LiteralPath $archive -DestinationPath $extractRoot -Force
+    $source = Get-ChildItem -LiteralPath $extractRoot -Directory |
+        Select-Object -First 1
+    if (-not $source) {
+        throw "libyaml archive did not contain a source directory."
+    }
+
+    $includeDir = Join-Path $directory "include"
+    $srcDir = Join-Path $directory "src"
+    New-Item -ItemType Directory -Path $includeDir -Force | Out-Null
+    New-Item -ItemType Directory -Path $srcDir -Force | Out-Null
+    Copy-Item -LiteralPath (Join-Path $source.FullName "include\yaml.h") `
+        -Destination $includeDir -Force
+    Copy-Item -Path (Join-Path $source.FullName "src\*.c") -Destination $srcDir -Force
+    Copy-Item -LiteralPath (Join-Path $source.FullName "src\yaml_private.h") `
+        -Destination $srcDir -Force
+    Copy-Item -LiteralPath (Join-Path $source.FullName "License") `
+        -Destination (Join-Path $directory "LICENSE.txt") -Force
+    Copy-Item -LiteralPath (Join-Path $source.FullName "ReadMe.md") `
+        -Destination (Join-Path $directory "README.md") -Force
+
+    foreach ($required in @($header, $scanner,
+                           (Join-Path $srcDir "yaml_private.h"))) {
+        if (-not (Test-Path -LiteralPath $required)) {
+            throw "libyaml installation is incomplete: $required"
+        }
+    }
+    Write-Host "  installed $directory"
+}
+
 function Install-YamlLanguageServer
 {
     $directory = Join-Path $ToolsDir "yaml-language-server"
@@ -292,6 +347,7 @@ Write-Host "  cache: $CacheDir"
 
 Install-Mihomo
 Install-Wintun
+Install-LibYaml
 Install-YamlLanguageServer
 
 if ($Installer) {

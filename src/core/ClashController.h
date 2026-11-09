@@ -7,6 +7,8 @@
 #include "core/SettingsStore.h"
 #include "core/SystemProxy.h"
 #include "core/Types.h"
+#include "scripts/ConfigComposer.h"
+#include "scripts/ScriptManager.h"
 
 #include <QElapsedTimer>
 #include <QObject>
@@ -38,6 +40,9 @@ public:
     const ProfileStore* profileStore() const { return &m_profiles; }
     NetworkProbe* networkProbe() { return &m_networkProbe; }
     const NetworkProbe* networkProbe() const { return &m_networkProbe; }
+    nq::scripts::ScriptManager* scriptManager() { return &m_scripts; }
+    const nq::scripts::ScriptManager* scriptManager() const { return &m_scripts; }
+    nq::scripts::ConfigComposer* configComposer() { return &m_composer; }
     cq::MemoryUsage memoryUsage() const { return m_memoryUsage; }
 
     cq::SessionStats stats() const { return m_stats; }
@@ -103,6 +108,8 @@ signals:
 
 private:
     void wire();
+    void initializeScripts();
+    void wireScripts();
     void enterDemo();
     void startDemo();
     void stopDemo();
@@ -128,6 +135,11 @@ private:
     void performConfigReload();
     void handleConfigReloadFinished(bool success, const QString& error);
     bool prepareRuntimeConfig(QString* error);
+    bool startWithScripts(const cq::ProfileMeta& profile, const QString& sourcePath);
+    void launchCore(const cq::ProfileMeta& profile, const QString& runtimePath);
+    void handleComposerFinished(const nq::scripts::ConfigComposer::Result& result);
+    QVector<nq::scripts::ScriptStep> activeScriptSteps() const;
+    void pruneScriptBindings();
     bool validateSettings(const cq::AppSettings& settings, QString* error) const;
     static cq::LogLevel parseLogLevel(const QString& raw);
     static QString cleanCoreMessage(const QString& raw);
@@ -135,6 +147,8 @@ private:
     SettingsStore m_settingsStore;
     cq::AppSettings m_settings;
     ProfileStore m_profiles;
+    nq::scripts::ScriptManager m_scripts;
+    nq::scripts::ConfigComposer m_composer;
     MihomoProcess m_process;
     MihomoApi m_api;
     NetworkProbe m_networkProbe;
@@ -175,6 +189,11 @@ private:
     bool m_configReloadInFlight = false;
     bool m_configReloadQueued = false;
     bool m_configReloadWhenReady = false;
+    bool m_scriptStartPending = false;
+    QString m_startRequestId;
+    QString m_reloadRequestId;
+    QString m_scriptStartProfileId;
+    QString m_scriptStartProfileName;
     int m_demoTick = 0;
     QElapsedTimer m_lastApiErrorAt;
     QString m_lastApiError;

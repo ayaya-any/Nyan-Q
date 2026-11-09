@@ -147,6 +147,9 @@ Copy-Item (Join-Path $Root "licenses") $OutDir -Recurse -Force
 if (Test-Path (Join-Path $Root "docs")) {
     Copy-Item (Join-Path $Root "docs") $OutDir -Recurse -Force
 }
+if (Test-Path (Join-Path $Root "examples")) {
+    Copy-Item (Join-Path $Root "examples") $OutDir -Recurse -Force
+}
 
 # Bundle the standalone Rust YAML language server. It is a single executable
 # and does not require Node.js or any other runtime.

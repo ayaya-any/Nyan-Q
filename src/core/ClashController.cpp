@@ -17,6 +17,7 @@
 #include <QStandardPaths>
 #include <QTimer>
 #include <QUrl>
+#include <QUuid>
 
 #include <algorithm>
 #include <cmath>
@@ -226,7 +227,8 @@ void ClashController::wire()
         log(cq::LogLevel::Error, message);
         emit notification(message, true);
     });
-    connect(&m_profiles, &ProfileStore::activeChanged, this, [this](const QString&) {
+    connect(&m_profiles, &ProfileStore::activeChanged, this, [this](const QString& id) {
+        m_scripts.setActiveProfileId(id);
         emit activeProfileChanged();
         scheduleConfigReload();
     });
@@ -235,6 +237,113 @@ void ClashController::wire()
             return;
         scheduleConfigReload();
     });
+    connect(&m_profiles, &ProfileStore::profileUpdated, this, [this](const QString& id) {
+        m_scripts.checkUpdatesForProfile(id, false);
+    });
+    connect(&m_profiles, &ProfileStore::changed, this, [this] { pruneScriptBindings(); });
+    connect(&m_composer, &nq::scripts::ConfigComposer::finished, this,
+            &ClashController::handleComposerFinished);
+    connect(&m_composer, &nq::scripts::ConfigComposer::started, this,
+            [this](const QString&) {
+                log(cq::LogLevel::Debug, QStringLiteral("正在生成 JavaScript 覆写配置…"));
+            });
+}
+
+void ClashController::initializeScripts()
+{
+    QString error;
+    if (!m_scripts.initialize(AppPaths::scriptsDir(), &error)) {
+        log(cq::LogLevel::Warning,
+            QStringLiteral("JavaScript 脚本系统初始化失败：%1").arg(error));
+        return;
+    }
+    wireScripts();
+    pruneScriptBindings();
+    m_scripts.setActiveProfileId(m_profiles.activeId());
+    if (m_demo && m_scripts.scripts().isEmpty()) {
+        m_scripts.createLocalScript(
+            QStringLiteral("示例 · 规则整理"),
+            QStringLiteral("演示用脚本，展示 console 日志和规则覆写"),
+            QStringLiteral(
+                "// 演示：为订阅补充一条本地直连规则，并输出执行日志\n"
+                "function main(config, profileName) {\n"
+                "    console.log(`正在处理订阅：${profileName}`);\n"
+                "    const rules = Array.isArray(config.rules) ? config.rules : [];\n"
+                "    const localRule = \"DOMAIN-SUFFIX,demo.nyanq,DIRECT\";\n"
+                "    if (!rules.includes(localRule))\n"
+                "        rules.unshift(localRule);\n"
+                "    config.rules = rules;\n"
+                "    return config;\n"
+                "}\n"),
+            nullptr);
+    }
+    if (!m_scripts.scripts().isEmpty()) {
+        log(cq::LogLevel::Info,
+            QStringLiteral("已加载 %1 个 JavaScript 覆写脚本").arg(m_scripts.scripts().size()));
+    }
+}
+
+void ClashController::wireScripts()
+{
+    connect(&m_scripts, &nq::scripts::ScriptManager::scriptUpdated, this, [this](const QString&) {
+        if (m_demo || m_shuttingDown)
+            return;
+        if (m_state == cq::CoreState::Running)
+            scheduleConfigReload();
+        else if (m_state == cq::CoreState::Starting)
+            m_configReloadWhenReady = true;
+    });
+    connect(&m_scripts, &nq::scripts::ScriptManager::operationSucceeded, this,
+            [this](const QString& message) {
+                log(cq::LogLevel::Info, QStringLiteral("[脚本] %1").arg(message));
+            });
+    connect(&m_scripts, &nq::scripts::ScriptManager::operationFailed, this,
+            [this](const QString& message) {
+                log(cq::LogLevel::Error, QStringLiteral("[脚本] %1").arg(message));
+                if (!m_demo)
+                    emit notification(message, true);
+            });
+    connect(&m_scripts, &nq::scripts::ScriptManager::updateFinished, this,
+            [this](const nq::scripts::ScriptUpdateResult& result) {
+                if (!result.ok) {
+                    log(cq::LogLevel::Warning,
+                        QStringLiteral("[脚本] 「%1」更新失败：%2")
+                            .arg(result.scriptName, result.error));
+                } else if (!result.notModified && !result.skipped) {
+                    log(cq::LogLevel::Info,
+                        QStringLiteral("[脚本] 「%1」已更新至 %2")
+                            .arg(result.scriptName, result.newSha256.left(12)));
+                }
+            });
+    connect(&m_scripts, &nq::scripts::ScriptManager::logAdded, this,
+            [this](const nq::scripts::ScriptLogEntry& entry) {
+                if (entry.level == nq::scripts::ScriptLogLevel::Error) {
+                    log(cq::LogLevel::Error,
+                        QStringLiteral("[脚本:%1] %2").arg(entry.scriptName, entry.message));
+                } else if (entry.level == nq::scripts::ScriptLogLevel::Warning) {
+                    log(cq::LogLevel::Warning,
+                        QStringLiteral("[脚本:%1] %2").arg(entry.scriptName, entry.message));
+                }
+            });
+}
+
+void ClashController::pruneScriptBindings()
+{
+    QStringList ids;
+    for (const cq::ProfileMeta& profile : m_profiles.profiles())
+        ids.append(profile.id);
+    QString error;
+    m_scripts.retainProfiles(ids, &error);
+    if (!error.isEmpty())
+        log(cq::LogLevel::Warning, QStringLiteral("清理脚本关联失败：%1").arg(error));
+}
+
+QVector<nq::scripts::ScriptStep> ClashController::activeScriptSteps() const
+{
+    const auto active = m_profiles.activeProfile();
+    if (!active)
+        return {};
+    return m_scripts.resolveSteps(active->id);
 }
 
 void ClashController::initialize(bool demo, bool ephemeral)
@@ -262,6 +371,7 @@ void ClashController::initialize(bool demo, bool ephemeral)
     m_profiles.initialize(AppPaths::profilesDir());
     if (m_demo)
         m_profiles.seedDemoProfiles();
+    initializeScripts();
 
     m_api.setEndpoint(m_settings.controllerPort);
     m_api.setSecret(m_settings.secret);
@@ -575,12 +685,76 @@ void ClashController::start()
     }
 
     m_activeConfigPath = AppPaths::runtimeConfigFile();
+
+    const QVector<nq::scripts::ScriptStep> steps = activeScriptSteps();
+    if (!steps.isEmpty()) {
+        startWithScripts(*active, sourcePath);
+        return;
+    }
+
     QString configError;
     if (!RuntimeConfig::write(sourcePath, m_activeConfigPath, m_settings, &configError)) {
         failStartup(configError);
         return;
     }
 
+    launchCore(*active, m_activeConfigPath);
+}
+
+bool ClashController::startWithScripts(const cq::ProfileMeta& profile, const QString& sourcePath)
+{
+    if (m_composer.isBusy()) {
+        failStartup(QStringLiteral("JavaScript 脚本配置正在生成，请稍后重试"));
+        return false;
+    }
+
+    QString readError;
+    const QByteArray raw = m_profiles.configContent(profile.id, &readError);
+    if (!readError.isEmpty() || raw.isEmpty()) {
+        failStartup(readError.isEmpty() ? QStringLiteral("当前订阅配置为空") : readError);
+        return false;
+    }
+
+    const QVector<nq::scripts::ScriptStep> steps = m_scripts.resolveSteps(profile.id);
+    m_scriptStartPending = true;
+    m_scriptStartProfileId = profile.id;
+    m_scriptStartProfileName = profile.name;
+    m_startRequestId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+
+    nq::scripts::ConfigComposer::Request request;
+    request.requestId = m_startRequestId;
+    request.profileId = profile.id;
+    request.profileName = profile.name;
+    request.rawConfig = raw;
+    request.settings = m_settings;
+    request.steps = steps;
+    request.scriptSettings = m_scripts.settings();
+    request.corePath = m_coreBinary;
+    request.dataDirectory = AppPaths::dataDir();
+    request.candidatePath =
+        AppPaths::runtimeDir() + QStringLiteral("/config.candidate.yaml");
+    request.outputPath = AppPaths::runtimeConfigFile();
+    request.validationTimeoutMs = 20000;
+    request.validate = true;
+    request.stopOnError = m_scripts.settings().stopOnError;
+
+    m_state = cq::CoreState::Starting;
+    emit stateChanged(m_state);
+    log(cq::LogLevel::Info,
+        QStringLiteral("正在执行 %1 个 JavaScript 脚本并校验最终配置…").arg(steps.size()));
+
+    if (!m_composer.build(request)) {
+        m_scriptStartPending = false;
+        m_startRequestId.clear();
+        failStartup(QStringLiteral("无法启动脚本配置生成"));
+        return false;
+    }
+    return true;
+}
+
+void ClashController::launchCore(const cq::ProfileMeta& profile, const QString& runtimePath)
+{
+    m_activeConfigPath = runtimePath;
     m_api.setEndpoint(m_settings.controllerPort);
     m_api.setSecret(m_settings.secret);
     m_api.setDelayTestUrl(m_settings.delayTestUrl);
@@ -605,7 +779,7 @@ void ClashController::start()
     emit stateChanged(m_state);
     log(cq::LogLevel::Info,
         QStringLiteral("正在启动 Mihomo · 配置「%1」 · 混合端口 %2")
-            .arg(active->name)
+            .arg(profile.name)
             .arg(m_settings.mixedPort));
     if (m_settings.tunEnabled && !isElevated()) {
         log(cq::LogLevel::Warning,
@@ -653,6 +827,10 @@ void ClashController::requestStop(bool restartAfter)
     m_configReloadInFlight = false;
     m_configReloadQueued = false;
     m_configReloadWhenReady = false;
+    m_scriptStartPending = false;
+    m_startRequestId.clear();
+    m_reloadRequestId.clear();
+    m_composer.cancel();
     m_probeTimer.stop();
     m_startupTimer.stop();
     m_statsTimer.stop();
@@ -730,6 +908,11 @@ void ClashController::handleStartupTimeout()
 void ClashController::failStartup(const QString& message)
 {
     m_lastError = message;
+    m_scriptStartPending = false;
+    m_startRequestId.clear();
+    m_reloadRequestId.clear();
+    if (m_composer.isBusy())
+        m_composer.cancel();
     m_probeTimer.stop();
     m_startupTimer.stop();
     m_statsTimer.stop();
@@ -1305,6 +1488,60 @@ void ClashController::performConfigReload()
         return;
     }
 
+    const auto active = m_profiles.activeProfile();
+    if (!active) {
+        log(cq::LogLevel::Error, QStringLiteral("没有可用的配置，无法热重载"));
+        return;
+    }
+
+    const QVector<nq::scripts::ScriptStep> steps = m_scripts.resolveSteps(active->id);
+    if (!steps.isEmpty()) {
+        if (m_composer.isBusy()) {
+            m_configReloadQueued = true;
+            return;
+        }
+        QString readError;
+        const QByteArray raw = m_profiles.configContent(active->id, &readError);
+        if (!readError.isEmpty() || raw.isEmpty()) {
+            log(cq::LogLevel::Error, readError.isEmpty()
+                                          ? QStringLiteral("当前订阅配置为空")
+                                          : readError);
+            return;
+        }
+
+        m_reloadRequestId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+        m_configReloadInFlight = true;
+        m_configReloadQueued = false;
+        log(cq::LogLevel::Info,
+            QStringLiteral("正在执行 %1 个 JavaScript 脚本并校验配置…").arg(steps.size()));
+
+        nq::scripts::ConfigComposer::Request request;
+        request.requestId = m_reloadRequestId;
+        request.profileId = active->id;
+        request.profileName = active->name;
+        request.rawConfig = raw;
+        request.settings = m_settings;
+        request.steps = steps;
+        request.scriptSettings = m_scripts.settings();
+        request.corePath = m_coreBinary.isEmpty()
+                               ? AppPaths::resolveCorePath(m_settings.corePath)
+                               : m_coreBinary;
+        request.dataDirectory = AppPaths::dataDir();
+        request.candidatePath =
+            AppPaths::runtimeDir() + QStringLiteral("/config.candidate.yaml");
+        request.outputPath = AppPaths::runtimeConfigFile();
+        request.validationTimeoutMs = 20000;
+        request.validate = true;
+        request.stopOnError = m_scripts.settings().stopOnError;
+
+        if (!m_composer.build(request)) {
+            m_reloadRequestId.clear();
+            m_configReloadInFlight = false;
+            log(cq::LogLevel::Error, QStringLiteral("无法启动脚本配置生成"));
+        }
+        return;
+    }
+
     QString error;
     if (!prepareRuntimeConfig(&error)) {
         log(cq::LogLevel::Error, error);
@@ -1317,6 +1554,86 @@ void ClashController::performConfigReload()
     log(cq::LogLevel::Info,
         QStringLiteral("正在热重载配置「%1」（不重启内核）…").arg(activeProfileName()));
     m_api.reloadConfig(QDir::toNativeSeparators(m_activeConfigPath), true);
+}
+
+void ClashController::handleComposerFinished(const nq::scripts::ConfigComposer::Result& result)
+{
+    if (m_shuttingDown)
+        return;
+
+    if (!m_startRequestId.isEmpty() && result.requestId == m_startRequestId) {
+        m_startRequestId.clear();
+        m_scriptStartPending = false;
+        if (m_state != cq::CoreState::Starting)
+            return;
+        if (result.canceled) {
+            if (m_state == cq::CoreState::Starting) {
+                m_state = cq::CoreState::Stopped;
+                emit stateChanged(m_state);
+            }
+            return;
+        }
+        if (!result.ok) {
+            m_scripts.recordPipelineResult(result.pipeline, result.profileName);
+            if (!result.pipeline.failingScriptId.isEmpty())
+                m_scripts.handlePipelineFailure(result.pipeline);
+            failStartup(result.error);
+            return;
+        }
+        const auto profile = m_profiles.find(result.profileId);
+        if (!profile || m_profiles.activeId() != result.profileId) {
+            failStartup(QStringLiteral("配置在脚本生成期间已切换，请重新连接"));
+            return;
+        }
+        m_scripts.recordPipelineResult(result.pipeline, result.profileName);
+        m_scriptStartProfileId.clear();
+        m_scriptStartProfileName.clear();
+        launchCore(*profile, result.outputPath);
+        return;
+    }
+
+    if (!m_reloadRequestId.isEmpty() && result.requestId == m_reloadRequestId) {
+        m_reloadRequestId.clear();
+        m_configReloadInFlight = false;
+        m_scripts.recordPipelineResult(result.pipeline, result.profileName);
+        if (m_state != cq::CoreState::Running) {
+            m_configReloadQueued = false;
+            return;
+        }
+        if (result.canceled) {
+            m_configReloadQueued = false;
+            return;
+        }
+        if (m_profiles.activeId() != result.profileId) {
+            log(cq::LogLevel::Info,
+                QStringLiteral("配置在脚本生成期间已切换，忽略本次热重载结果"));
+            m_configReloadQueued = false;
+            scheduleConfigReload();
+            return;
+        }
+        if (!result.ok) {
+            if (!result.pipeline.failingScriptId.isEmpty())
+                m_scripts.handlePipelineFailure(result.pipeline);
+            const QString message =
+                QStringLiteral("JavaScript 覆写后的配置未通过校验，已保留原有配置：%1")
+                    .arg(result.error);
+            m_lastError = message;
+            log(cq::LogLevel::Error, message);
+            emit notification(message, true);
+            if (m_configReloadQueued) {
+                m_configReloadQueued = false;
+                m_configReloadTimer.start(80);
+            }
+            return;
+        }
+
+        m_configReloadInFlight = true;
+        m_configReloadQueued = false;
+        log(cq::LogLevel::Info,
+            QStringLiteral("脚本配置校验通过，正在热重载（不重启内核）…"));
+        m_api.reloadConfig(QDir::toNativeSeparators(result.outputPath), true);
+        return;
+    }
 }
 
 void ClashController::handleConfigReloadFinished(bool success, const QString& error)
@@ -1546,6 +1863,11 @@ void ClashController::shutdown()
     m_shuttingDown = true;
     m_restartPending = false;
     m_pendingSystemProxy = false;
+    m_scriptStartPending = false;
+    m_startRequestId.clear();
+    m_reloadRequestId.clear();
+    m_composer.shutdown();
+    m_scripts.shutdown();
     m_probeTimer.stop();
     m_startupTimer.stop();
     m_statsTimer.stop();

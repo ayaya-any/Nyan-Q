@@ -15,6 +15,7 @@
 #include "ui/pages/ProfilesPage.h"
 #include "ui/pages/ProxiesPage.h"
 #include "ui/pages/RulesPage.h"
+#include "ui/pages/ScriptsPage.h"
 #include "ui/pages/SettingsPage.h"
 #include "ui/widgets/MaterialWidgets.h"
 
@@ -212,6 +213,7 @@ void MainWindow::buildUi()
     m_connections = new ConnectionsPage(m_controller, m_stack);
     m_rules = new RulesPage(m_controller, m_stack);
     m_logs = new LogsPage(m_controller, m_stack);
+    m_scriptsPage = new ScriptsPage(m_controller, m_stack);
     m_settings = new SettingsPage(m_controller, m_stack);
 
     m_stack->addWidget(m_dashboard);
@@ -220,6 +222,7 @@ void MainWindow::buildUi()
     m_stack->addWidget(m_connections);
     m_stack->addWidget(m_rules);
     m_stack->addWidget(m_logs);
+    m_stack->addWidget(m_scriptsPage);
     m_stack->addWidget(m_settings);
     m_stack->setCurrentIndex(0);
 
@@ -347,12 +350,12 @@ bool MainWindow::ensureEditorClosable()
 
 void MainWindow::setupShortcuts()
 {
-    for (int i = 0; i < 7; ++i) {
+    for (int i = 0; i < 8; ++i) {
         auto* shortcut = new QShortcut(QKeySequence(QStringLiteral("Ctrl+%1").arg(i + 1)), this);
         connect(shortcut, &QShortcut::activated, this, [this, i] { setCurrentPage(i); });
     }
     auto* settingsShortcut = new QShortcut(QKeySequence(QStringLiteral("Ctrl+,")), this);
-    connect(settingsShortcut, &QShortcut::activated, this, [this] { setCurrentPage(6); });
+    connect(settingsShortcut, &QShortcut::activated, this, [this] { setCurrentPage(7); });
 
     auto* quitShortcut = new QShortcut(QKeySequence::Quit, this);
     connect(quitShortcut, &QShortcut::activated, this, [this] {

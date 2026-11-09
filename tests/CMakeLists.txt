@@ -11,7 +11,7 @@ function(nyanq_add_test name)
     qt_add_executable(${name} ${TEST_SOURCES})
     target_include_directories(${name} PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/../src)
-    target_link_libraries(${name} PRIVATE Qt6::Test Qt6::Core ${TEST_LIBS})
+    target_link_libraries(${name} PRIVATE Qt6::Test Qt6::Core Qt6::Network ${TEST_LIBS})
     if(MSVC)
         target_compile_options(${name} PRIVATE /utf-8 /W3 /permissive-)
     endif()
@@ -42,4 +42,72 @@ nyanq_add_test(test_profile_store
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/core/ProfileStore.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../resources/resources.qrc
     LIBS Qt6::Network
+)
+
+nyanq_add_test(test_yaml_document
+    SOURCES
+        test_yaml_document.cpp
+        yaml_sample.cpp
+    LIBS nyanq_scripting
+)
+
+nyanq_add_test(test_script_engine
+    SOURCES
+        test_script_engine.cpp
+        yaml_sample.cpp
+    LIBS nyanq_scripting
+)
+
+nyanq_add_test(test_script_repository
+    SOURCES
+        test_script_repository.cpp
+    LIBS nyanq_scripting
+)
+
+nyanq_add_test(test_script_binding_manager
+    SOURCES
+        test_script_binding_manager.cpp
+    LIBS nyanq_scripting
+)
+
+nyanq_add_test(test_script_pipeline
+    SOURCES
+        test_script_pipeline.cpp
+        yaml_sample.cpp
+    LIBS nyanq_scripting
+)
+
+nyanq_add_test(test_script_downloader
+    SOURCES
+        test_script_downloader.cpp
+        http_test_server.cpp
+    LIBS nyanq_scripting
+)
+
+nyanq_add_test(test_script_manager
+    SOURCES
+        test_script_manager.cpp
+        http_test_server.cpp
+        yaml_sample.cpp
+    LIBS nyanq_scripting
+)
+
+nyanq_add_test(test_mihomo_config_validator
+    SOURCES
+        test_mihomo_config_validator.cpp
+    LIBS nyanq_scripting
+)
+
+nyanq_add_test(test_mihomo_load
+    SOURCES
+        test_mihomo_load.cpp
+        yaml_sample.cpp
+    LIBS nyanq_scripting
+)
+
+nyanq_add_test(test_config_composer
+    SOURCES
+        test_config_composer.cpp
+        yaml_sample.cpp
+    LIBS nyanq_scripting
 )

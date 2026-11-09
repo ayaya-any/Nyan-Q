@@ -24,6 +24,28 @@ Nyan-Q 自身源代码以 MIT License 发布（见 `LICENSE`）。发布包还�
 
 Mihomo 进程通过本机 HTTP REST API 由 Nyan-Q 控制，未与 Nyan-Q 静态链接。
 
+## QuickJS-ng
+
+- 版本：v0.18.0（`quickjs-amalgam.zip`，由 CMake FetchContent 在配置阶段下载）。
+- 用途：执行 JavaScript 配置覆写脚本的嵌入式引擎。
+- 授权：MIT License。
+- 许可证：`licenses/QuickJS-ng-LICENSE.txt`。
+- 源码：https://github.com/quickjs-ng/quickjs
+- 发布页：https://github.com/quickjs-ng/quickjs/releases/tag/v0.18.0
+
+QuickJS 以静态库形式链接进 Nyan-Q。脚本运行时没有 std/os 模块加载器，
+也没有文件、网络、进程或环境变量接口。
+
+## libyaml
+
+- 版本：0.2.5。
+- 用途：解析和生成 Mihomo YAML 配置的顺序保持文档模型。
+- 授权：MIT License。
+- 许可证：`licenses/LibYAML-LICENSE.txt`。
+- 源码：https://github.com/yaml/libyaml
+
+libyaml 以静态库形式链接进 Nyan-Q，仅处理内存中的 YAML 文本。
+
 ## Microsoft Visual C++ Runtime
 
 - 用途：应用所需的 MSVC x64 运行库（`msvcp140.dll`、`vcruntime140.dll` 等）。
@@ -70,9 +92,12 @@ Node.js 运行时。
 ## 说明
 
 `tools/` 和 `third_party/` 不随源码提交。打包脚本按
-`scripts/fetch-deps.ps1` 中的固定版本从官方来源下载依赖；YAML 语言服务为
-预编译独立二进制，并按 SHA-256 校验。安装包构建工具为
-Inno Setup 6.7.4（https://github.com/jrsoftware/issrc），不随应用运行。
+`scripts/fetch-deps.ps1` 中的固定版本从官方来源下载 libyaml、Mihomo、
+Wintun 和 YAML 语言服务，并按 SHA-256 校验。QuickJS-ng 由 CMake
+FetchContent 按固定 URL 和 SHA-256 下载；离线构建时可通过
+`-DFETCHCONTENT_SOURCE_DIR_QUICKJS=<dir>` 指定本地源码。YAML 语言服务为
+预编译独立二进制。安装包构建工具为 Inno Setup 6.7.4
+（https://github.com/jrsoftware/issrc），不随应用运行。
 
 本文件不构成法律意见。分发二进制包前，请根据实际分发方式重新审阅所有
 许可证的要求，并确保相应的源代码获取方式与许可证文本随包提供。
