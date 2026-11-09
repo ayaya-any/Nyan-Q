@@ -1,19 +1,16 @@
 #pragma once
 
 #include "core/Types.h"
-#include "lsp/LspTypes.h"
 
 #include <QWidget>
 
 class ClashController;
 class CodeEditor;
-class LspClient;
 class M3Button;
 class M3IconButton;
 class M3Pill;
 class QLabel;
 class QLineEdit;
-class QTimer;
 
 class ConfigEditorView final : public QWidget {
     Q_OBJECT
@@ -21,7 +18,7 @@ class ConfigEditorView final : public QWidget {
 public:
     explicit ConfigEditorView(ClashController* controller,
                               const cq::ProfileMeta& profile, QWidget* parent = nullptr);
-    ~ConfigEditorView() override;
+    ~ConfigEditorView() override = default;
 
     bool confirmClose();
     bool isModified() const;
@@ -42,9 +39,7 @@ private:
     void loadContent();
     void saveContent();
     void revertContent();
-    void formatContent();
     void commitName();
-    void startLanguageServer();
     void updateModifiedState();
     void updateCursorStatus(int line, int column);
     void showFindBar(bool replace);
@@ -57,11 +52,6 @@ private:
     ClashController* m_controller = nullptr;
     cq::ProfileMeta m_profile;
     QString m_filePath;
-    LspServerProfile m_serverProfile;
-    LspClient* m_lsp = nullptr;
-    QTimer* m_changeTimer = nullptr;
-    int m_completionRequest = -1;
-    int m_formatRequest = -1;
 
     CodeEditor* m_editor = nullptr;
     QWidget* m_findBar = nullptr;
@@ -77,6 +67,5 @@ private:
     QLabel* m_statsLabel = nullptr;
     QLabel* m_issueLabel = nullptr;
     QString m_originalText;
-    bool m_loading = false;
     bool m_readError = false;
 };

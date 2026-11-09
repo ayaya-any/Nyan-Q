@@ -5,7 +5,7 @@
 
 .DESCRIPTION
     The repository intentionally does not track the Mihomo core, Wintun,
-    libyaml, the YAML language server, Inno Setup or the VC++ redistributable.
+    libyaml, Inno Setup or the VC++ redistributable.
     This script fetches the pinned versions into tools/ and third_party/
     (both ignored by Git) and verifies package checksums. QuickJS-ng is
     fetched separately by CMake FetchContent.
@@ -59,11 +59,6 @@ $WintunDllSha256 = "E5DA8447DC2C320EDC0FC52FA01885C103DE8C118481F683643CACC3220D
 $LibYamlVersion = "0.2.5"
 $LibYamlUrl = "https://codeload.github.com/yaml/libyaml/zip/refs/tags/$LibYamlVersion"
 $LibYamlZipSha256 = "14605BAA6DFC0C4D3AB943A46A627413C0388736E453B67FE4E90C9683C8CBC8"
-
-$YamlLspVersion = "0.1.0"
-$YamlLspUrl = "https://github.com/ayaya-any/yaml-language-server-rust/releases/download/v$YamlLspVersion/yaml-language-server-v$YamlLspVersion-windows-x64.zip"
-$YamlLspZipSha256 = "5C7D84AFC505DDFE6BD1FC34C977D9395C81327967B77F82727181C125512B76"
-$YamlLspExeSha256 = "7B0FB4B0397144B613A01448AC0555DE04AB28D752F072EBDF3F66E854C1CD47"
 
 $InnoVersion = "6.7.4"
 $InnoSetupUrl = "https://github.com/jrsoftware/issrc/releases/download/is-6_7_4/innosetup-$InnoVersion.exe"
@@ -151,7 +146,6 @@ function Reset-ToolDirectory([string]$Directory)
 {
     $target = [System.IO.Path]::GetFullPath($Directory)
     $allowed = @(
-        (Join-Path $ToolsDir "yaml-language-server"),
         (Join-Path $ToolsDir "innosetup")
     )
     if ($target -notin $allowed) {
@@ -254,30 +248,6 @@ function Install-LibYaml
     Write-Host "  installed $directory"
 }
 
-function Install-YamlLanguageServer
-{
-    $directory = Join-Path $ToolsDir "yaml-language-server"
-    $executable = Join-Path $directory "yaml-language-server.exe"
-    if (-not $Force -and (Test-Sha256 $executable $YamlLspExeSha256)) {
-        Write-Host "  yaml-language-server $YamlLspVersion (cached)"
-        return
-    }
-
-    Write-Step "YAML language server $YamlLspVersion"
-    $archive = Get-DependencyFile -Url $YamlLspUrl `
-        -FileName "yaml-language-server-v$YamlLspVersion-windows-x64.zip" `
-        -Sha256 $YamlLspZipSha256
-    Reset-ToolDirectory $directory
-    Expand-ZipEntry -ZipPath $archive -EntryName "yaml-language-server.exe" `
-        -Destination $executable
-    Expand-ZipEntry -ZipPath $archive -EntryName "LICENSE" `
-        -Destination (Join-Path $directory "LICENSE")
-    if (-not (Test-Sha256 $executable $YamlLspExeSha256)) {
-        throw "yaml-language-server.exe failed SHA256 verification after extraction."
-    }
-    Write-Host "  installed $executable"
-}
-
 function Install-VCRedist
 {
     $directory = Join-Path $ThirdPartyDir "vcredist"
@@ -348,7 +318,6 @@ Write-Host "  cache: $CacheDir"
 Install-Mihomo
 Install-Wintun
 Install-LibYaml
-Install-YamlLanguageServer
 
 if ($Installer) {
     Install-VCRedist

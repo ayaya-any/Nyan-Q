@@ -76,6 +76,19 @@ target_compile_definitions(nyanq_yaml
     PUBLIC YAML_DECLARE_STATIC
     PRIVATE HAVE_CONFIG_H _CRT_SECURE_NO_WARNINGS)
 
+# Built-in language plugins used by the editors. Adding another language is a
+# provider implementation plus one registration in LanguageRegistry.
+add_library(nyanq_lang STATIC
+    src/lang/LanguageRegistry.cpp
+    src/lang/YamlLanguageProvider.cpp
+    src/lang/JavaScriptLanguageProvider.cpp
+)
+target_include_directories(nyanq_lang PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
+target_link_libraries(nyanq_lang PUBLIC Qt6::Core Qt6::Gui nyanq_yaml nyanq_quickjs)
+if(MSVC)
+    target_compile_options(nyanq_lang PRIVATE /utf-8 /W3 /permissive- /Zc:__cplusplus)
+endif()
+
 # Script storage, execution, orchestration and final config validation. This
 # library is shared by the application and the automated tests.
 add_library(nyanq_scripting STATIC
@@ -121,9 +134,6 @@ set(NYANQ_SOURCES
 
     src/models/RuleListModel.cpp
     src/models/ConnectionListModel.cpp
-
-    src/lsp/LspClient.cpp
-    src/lsp/LspServerRegistry.cpp
 
     src/ui/MainWindow.cpp
     src/ui/Sidebar.cpp
@@ -178,6 +188,7 @@ target_link_libraries(NyanQ PRIVATE
     Qt6::Gui
     Qt6::Widgets
     Qt6::Network
+    nyanq_lang
     nyanq_scripting
 )
 
@@ -205,11 +216,6 @@ if(EXISTS "${MIHOMO_BINARY}")
     add_custom_command(TARGET NyanQ POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
                 "${MIHOMO_BINARY}" "$<TARGET_FILE_DIR:NyanQ>/mihomo.exe"
-        COMMAND ${CMAKE_COMMAND} -E make_directory
-                "$<TARGET_FILE_DIR:NyanQ>/lsp"
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "${CMAKE_CURRENT_SOURCE_DIR}/resources/clash-config.schema.json"
-                "$<TARGET_FILE_DIR:NyanQ>/lsp/clash-config.schema.json"
         COMMENT "Bundling Mihomo core"
         VERBATIM)
     if(EXISTS "${WINTUN_BINARY}")
@@ -233,7 +239,6 @@ endif()
 install(FILES
     README.md
     THIRD_PARTY_NOTICES.md
-    lsp-servers.example.json
     LICENSE
     DESTINATION .)
 install(DIRECTORY licenses DESTINATION .)

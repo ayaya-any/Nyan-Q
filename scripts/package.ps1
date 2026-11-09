@@ -141,7 +141,6 @@ Copy-Item (Join-Path $Root "third_party\mihomo\mihomo.exe") $OutDir -Force
 Copy-Item (Join-Path $Root "third_party\mihomo\wintun.dll") $OutDir -Force
 Copy-Item (Join-Path $Root "README.md") $OutDir -Force
 Copy-Item (Join-Path $Root "THIRD_PARTY_NOTICES.md") $OutDir -Force
-Copy-Item (Join-Path $Root "lsp-servers.example.json") $OutDir -Force
 Copy-Item (Join-Path $Root "LICENSE") $OutDir -Force
 Copy-Item (Join-Path $Root "licenses") $OutDir -Recurse -Force
 if (Test-Path (Join-Path $Root "docs")) {
@@ -150,28 +149,6 @@ if (Test-Path (Join-Path $Root "docs")) {
 if (Test-Path (Join-Path $Root "examples")) {
     Copy-Item (Join-Path $Root "examples") $OutDir -Recurse -Force
 }
-
-# Bundle the standalone Rust YAML language server. It is a single executable
-# and does not require Node.js or any other runtime.
-$LspSource = Join-Path $Root "tools\yaml-language-server"
-$YamlLsp = Join-Path $LspSource "yaml-language-server.exe"
-if (-not (Test-Path $YamlLsp)) {
-    throw "YAML language server is missing after dependency preparation: $YamlLsp"
-}
-$YamlLicense = Join-Path $Root "licenses\Yaml-Language-Server-LICENSE.txt"
-if (-not (Test-Path $YamlLicense)) {
-    throw "YAML language server license is missing: $YamlLicense"
-}
-$LspOut = Join-Path $OutDir "lsp"
-New-Item -ItemType Directory -Path $LspOut -Force | Out-Null
-Copy-Item $YamlLsp (Join-Path $LspOut "yaml-language-server.exe") -Force
-Copy-Item (Join-Path $Root "resources\clash-config.schema.json") $LspOut -Force
-@"
-YAML Language Server (Rust, standalone) is bundled for the Nyan-Q configuration editor.
-It is started by Nyan-Q as a stdio LSP server; it is not linked into the app and
-does not require Node.js.
-See licenses/Yaml-Language-Server-LICENSE.txt and THIRD_PARTY_NOTICES.md.
-"@ | Set-Content -LiteralPath (Join-Path $LspOut "README.txt") -Encoding UTF8
 
 $WinDeployQt = Join-Path $QtDir "bin\windeployqt.exe"
 Write-Host "Deploying Qt runtime from $QtDir" -ForegroundColor DarkGray
@@ -223,7 +200,7 @@ try {
         -ArgumentList @("--screenshot-editor", "`"$editorPreview`"") `
         -WindowStyle Hidden -Wait -PassThru
     if ($editorProcess.ExitCode -ne 0 -or -not (Test-Path $editorPreview)) {
-        throw "Packaged editor/LSP check failed (exit $($editorProcess.ExitCode))."
+        throw "Packaged editor check failed (exit $($editorProcess.ExitCode))."
     }
     Remove-Item -LiteralPath $editorPreview -Force -ErrorAction SilentlyContinue
 }

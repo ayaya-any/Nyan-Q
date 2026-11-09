@@ -3,6 +3,7 @@
 #include "app/Fonts.h"
 #include "app/Theme.h"
 #include "core/ClashController.h"
+#include "lang/LanguageRegistry.h"
 #include "scripts/ScriptManager.h"
 #include "ui/dialogs/ConfirmDialog.h"
 #include "ui/dialogs/ScriptDialogs.h"
@@ -267,7 +268,8 @@ void ScriptEditorView::buildUi()
     rightLayout->addWidget(m_findBar);
 
     m_editor = new CodeEditor(right);
-    m_editor->setSyntaxMode(CodeEditor::SyntaxMode::JavaScript);
+    m_editor->setLanguageProvider(
+        nq::lang::LanguageRegistry::instance().providerById(QStringLiteral("javascript")));
     rightLayout->addWidget(m_editor, 1);
 
     auto* status = new ScriptEditorChrome(ScriptEditorChrome::Edge::None, right);

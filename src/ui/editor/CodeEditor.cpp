@@ -2,248 +2,23 @@
 
 #include "app/Fonts.h"
 #include "app/Theme.h"
+#include "lang/LanguageProvider.h"
 
 #include <QAbstractItemView>
 #include <QFontMetricsF>
 #include <QKeyEvent>
 #include <QListWidget>
 #include <QPainter>
-#include <QRegularExpression>
 #include <QScrollBar>
 #include <QSyntaxHighlighter>
 #include <QTextBlock>
-#include <QTextCharFormat>
 #include <QTextCursor>
 #include <QTextDocument>
-#include <QTextEdit>
+#include <QTextFormat>
 #include <QTimer>
 
 #include <algorithm>
-
-namespace {
-class YamlSyntaxHighlighter final : public QSyntaxHighlighter {
-public:
-    explicit YamlSyntaxHighlighter(QTextDocument* document)
-        : QSyntaxHighlighter(document)
-    {
-        refresh();
-        connect(&Theme::instance(), &Theme::changed, this, [this] {
-            refresh();
-            rehighlight();
-        });
-    }
-
-    void refresh()
-    {
-        const Palette& p = pal();
-        m_key.setForeground(p.primary);
-        m_key.setFontWeight(QFont::DemiBold);
-        m_string.setForeground(p.tertiary);
-        m_number.setForeground(p.secondary);
-        m_keyword.setForeground(p.primary);
-        m_punctuation.setForeground(p.onSurfaceVariant);
-        m_comment.setForeground(p.onSurfaceVariant);
-        m_comment.setFontItalic(true);
-    }
-
-protected:
-    void highlightBlock(const QString& text) override
-    {
-        static const QRegularExpression keyPattern(
-            QStringLiteral("^(\\s*(?:-\\s+)?)([A-Za-z0-9_.-]+)(\\s*:)"));
-        static const QRegularExpression stringPattern(
-            QStringLiteral("\"(?:[^\"\\\\]|\\\\.)*\"|'(?:[^'\\\\]|\\\\.)*'"));
-        static const QRegularExpression numberPattern(
-            QStringLiteral("\\b-?\\d+(?:\\.\\d+)?\\b"));
-        static const QRegularExpression keywordPattern(
-            QStringLiteral("\\b(?:true|false|yes|no|null|on|off)\\b"),
-            QRegularExpression::CaseInsensitiveOption);
-        static const QRegularExpression punctuationPattern(
-            QStringLiteral("^\\s*-\\s|[\\[\\]{},]"));
-
-        const int comment = commentStart(text);
-        const auto addMatches = [&](const QRegularExpression& pattern,
-                                    const QTextCharFormat& format) {
-            auto it = pattern.globalMatch(text);
-            while (it.hasNext()) {
-                const auto match = it.next();
-                if (comment >= 0 && match.capturedStart() >= comment)
-                    continue;
-                setFormat(match.capturedStart(), match.capturedLength(), format);
-            }
-        };
-
-        const auto key = keyPattern.match(text);
-        if (key.hasMatch() && (comment < 0 || key.capturedStart(2) < comment))
-            setFormat(key.capturedStart(2), key.capturedLength(2), m_key);
-
-        addMatches(stringPattern, m_string);
-        addMatches(numberPattern, m_number);
-        addMatches(keywordPattern, m_keyword);
-        addMatches(punctuationPattern, m_punctuation);
-        if (comment >= 0)
-            setFormat(comment, text.size() - comment, m_comment);
-    }
-
-private:
-    static int commentStart(const QString& text)
-    {
-        bool single = false;
-        bool doubleQuote = false;
-        for (int i = 0; i < text.size(); ++i) {
-            const QChar ch = text.at(i);
-            if (ch == QLatin1Char('\\') && i + 1 < text.size()) {
-                ++i;
-                continue;
-            }
-            if (ch == QLatin1Char('\'') && !doubleQuote)
-                single = !single;
-            else if (ch == QLatin1Char('"') && !single)
-                doubleQuote = !doubleQuote;
-            else if (ch == QLatin1Char('#') && !single && !doubleQuote)
-                return i;
-        }
-        return -1;
-    }
-
-    QTextCharFormat m_key;
-    QTextCharFormat m_string;
-    QTextCharFormat m_number;
-    QTextCharFormat m_keyword;
-    QTextCharFormat m_punctuation;
-    QTextCharFormat m_comment;
-};
-class JavaScriptSyntaxHighlighter final : public QSyntaxHighlighter {
-public:
-    explicit JavaScriptSyntaxHighlighter(QTextDocument* document)
-        : QSyntaxHighlighter(document)
-    {
-        refresh();
-        connect(&Theme::instance(), &Theme::changed, this, [this] {
-            refresh();
-            rehighlight();
-        });
-    }
-
-    void refresh()
-    {
-        const Palette& p = pal();
-        m_keyword.setForeground(p.primary);
-        m_keyword.setFontWeight(QFont::DemiBold);
-        m_string.setForeground(p.tertiary);
-        m_number.setForeground(p.secondary);
-        m_comment.setForeground(p.onSurfaceVariant);
-        m_comment.setFontItalic(true);
-        m_punctuation.setForeground(p.onSurfaceVariant);
-        m_function.setForeground(p.secondary);
-    }
-
-protected:
-    void highlightBlock(const QString& text) override
-    {
-        static const QRegularExpression keywordPattern(
-            QStringLiteral("\\b(?:function|const|let|var|return|if|else|for|while|do|switch|"
-                           "case|break|continue|new|typeof|instanceof|in|of|class|extends|"
-                           "super|this|try|catch|finally|throw|async|await|yield|delete|void|"
-                           "true|false|null|undefined)\\b"));
-        static const QRegularExpression numberPattern(
-            QStringLiteral("\\b(?:0[xX][0-9a-fA-F]+|\\d+(?:\\.\\d+)?(?:[eE][-+]?\\d+)?)\\b"));
-        static const QRegularExpression functionPattern(
-            QStringLiteral("\\b[A-Za-z_$][A-Za-z0-9_$]*(?=\\s*\\()"));
-        static const QRegularExpression punctuationPattern(
-            QStringLiteral("[{}\\[\\]();,]"));
-        static const QRegularExpression stringPattern(
-            QStringLiteral("\"(?:[^\"\\\\]|\\\\.)*\"|'(?:[^'\\\\]|\\\\.)*'|`(?:[^`\\\\]|\\\\.)*`"));
-
-        const Palette& p = pal();
-        m_comment.setForeground(p.onSurfaceVariant);
-
-        int state = previousBlockState();
-        int index = 0;
-        if (state == 1) {
-            const int end = text.indexOf(QStringLiteral("*/"));
-            if (end < 0) {
-                setFormat(0, text.size(), m_comment);
-                setCurrentBlockState(1);
-                return;
-            }
-            setFormat(0, end + 2, m_comment);
-            index = end + 2;
-            state = 0;
-        }
-
-        // Strings first, then keywords/numbers only outside strings and comments.
-        QVector<bool> masked(text.size(), false);
-        auto it = stringPattern.globalMatch(text, index);
-        while (it.hasNext()) {
-            const auto match = it.next();
-            setFormat(match.capturedStart(), match.capturedLength(), m_string);
-            for (int i = match.capturedStart();
-                 i < match.capturedStart() + match.capturedLength() && i < masked.size(); ++i)
-                masked[i] = true;
-        }
-
-        const auto apply = [&](const QRegularExpression& pattern, const QTextCharFormat& format) {
-            auto matches = pattern.globalMatch(text, index);
-            while (matches.hasNext()) {
-                const auto match = matches.next();
-                if (match.capturedStart() < masked.size() && masked.at(match.capturedStart()))
-                    continue;
-                setFormat(match.capturedStart(), match.capturedLength(), format);
-            }
-        };
-        apply(keywordPattern, m_keyword);
-        apply(numberPattern, m_number);
-        apply(functionPattern, m_function);
-        apply(punctuationPattern, m_punctuation);
-
-        // Line comments and block comment starts.
-        bool inSingle = false;
-        bool inDouble = false;
-        bool inTemplate = false;
-        for (int i = index; i < text.size(); ++i) {
-            const QChar ch = text.at(i);
-            if (ch == QLatin1Char('\\')) {
-                ++i;
-                continue;
-            }
-            if (ch == QLatin1Char('\'') && !inDouble && !inTemplate)
-                inSingle = !inSingle;
-            else if (ch == QLatin1Char('"') && !inSingle && !inTemplate)
-                inDouble = !inDouble;
-            else if (ch == QLatin1Char('`') && !inSingle && !inDouble)
-                inTemplate = !inTemplate;
-            if (inSingle || inDouble || inTemplate)
-                continue;
-            if (ch == QLatin1Char('/') && i + 1 < text.size()) {
-                if (text.at(i + 1) == QLatin1Char('/')) {
-                    setFormat(i, text.size() - i, m_comment);
-                    break;
-                }
-                if (text.at(i + 1) == QLatin1Char('*')) {
-                    const int end = text.indexOf(QStringLiteral("*/"), i + 2);
-                    if (end < 0) {
-                        setFormat(i, text.size() - i, m_comment);
-                        setCurrentBlockState(1);
-                    } else {
-                        setFormat(i, end + 2 - i, m_comment);
-                        i = end + 1;
-                    }
-                }
-            }
-        }
-    }
-
-private:
-    QTextCharFormat m_keyword;
-    QTextCharFormat m_string;
-    QTextCharFormat m_number;
-    QTextCharFormat m_comment;
-    QTextCharFormat m_punctuation;
-    QTextCharFormat m_function;
-};
-
-}  // namespace
+#include <utility>
 
 class LineNumberArea final : public QWidget {
 public:
@@ -278,16 +53,25 @@ CodeEditor::CodeEditor(QWidget* parent)
     setCursorWidth(2);
 
     m_lineNumberArea = new LineNumberArea(this);
-    m_highlighter = new YamlSyntaxHighlighter(document());
+    m_diagnosticTimer = new QTimer(this);
+    m_diagnosticTimer->setSingleShot(true);
+    m_diagnosticTimer->setInterval(220);
+    connect(m_diagnosticTimer, &QTimer::timeout, this, &CodeEditor::runDiagnostics);
 
     connect(this, &QPlainTextEdit::blockCountChanged, this,
-            &CodeEditor::updateLineNumberAreaWidth);    connect(this, &QPlainTextEdit::updateRequest, this, &CodeEditor::updateLineNumberArea);
+            &CodeEditor::updateLineNumberAreaWidth);
+    connect(this, &QPlainTextEdit::updateRequest, this, &CodeEditor::updateLineNumberArea);
     connect(this, &QPlainTextEdit::cursorPositionChanged, this, [this] {
         highlightCurrentLine();
         emit cursorInfoChanged(currentLine(), currentColumn());
     });
     connect(this, &QPlainTextEdit::selectionChanged, this, &CodeEditor::highlightCurrentLine);
+    connect(this, &QPlainTextEdit::textChanged, this, [this] {
+        if (m_diagnosticTimer)
+            m_diagnosticTimer->start();
+    });
     connect(&Theme::instance(), &Theme::changed, this, [this] {
+        rebuildHighlighter();
         updateEditorPalette();
         m_lineNumberArea->update();
     });
@@ -297,19 +81,52 @@ CodeEditor::CodeEditor(QWidget* parent)
     highlightCurrentLine();
 }
 
-void CodeEditor::setSyntaxMode(SyntaxMode mode)
+void CodeEditor::setLanguageProvider(const nq::lang::LanguageProvider* provider)
 {
-    if (m_syntaxMode == mode && m_highlighter)
+    if (m_provider == provider)
         return;
-    m_syntaxMode = mode;
+    m_provider = provider;
+    rebuildHighlighter();
+    runDiagnostics();
+}
+
+void CodeEditor::rebuildHighlighter()
+{
     delete m_highlighter;
-    m_highlighter = mode == SyntaxMode::JavaScript
-                        ? static_cast<QSyntaxHighlighter*>(
-                              new JavaScriptSyntaxHighlighter(document()))
-                        : static_cast<QSyntaxHighlighter*>(new YamlSyntaxHighlighter(document()));
+    m_highlighter = nullptr;
+    if (!m_provider)
+        return;
+
+    const Palette& p = pal();
+    nq::lang::LanguageTheme theme;
+    theme.keyword = p.primary;
+    theme.string = p.tertiary;
+    theme.number = p.secondary;
+    theme.comment = p.onSurfaceVariant;
+    theme.punctuation = p.onSurfaceVariant;
+    theme.function = p.secondary;
+    theme.dark = p.dark;
+    m_highlighter = m_provider->createHighlighter(document(), theme);
     if (m_highlighter)
         m_highlighter->rehighlight();
-    update();
+}
+
+void CodeEditor::runDiagnostics()
+{
+    if (!m_provider) {
+        setDiagnostics({});
+        return;
+    }
+    const QString text = toPlainText();
+    if (text.size() > 4 * 1024 * 1024) {
+        nq::lang::Diagnostic diagnostic;
+        diagnostic.severity = nq::lang::DiagnosticSeverity::Warning;
+        diagnostic.message = QStringLiteral("文件超过 4 MB，已跳过实时语法检查");
+        diagnostic.source = m_provider->displayName();
+        setDiagnostics({diagnostic});
+        return;
+    }
+    setDiagnostics(m_provider->diagnose(text, m_documentPath));
 }
 
 void CodeEditor::updateEditorPalette()
@@ -407,18 +224,17 @@ int CodeEditor::currentColumn() const
     return textCursor().positionInBlock() + 1;
 }
 
-QTextCursor CodeEditor::cursorForPosition(QTextDocument* document,
-                                          const LspPosition& position)
+QTextCursor CodeEditor::cursorForDiagnostic(const nq::lang::Diagnostic& diagnostic) const
 {
-    if (!document)
+    if (!document())
         return {};
-    QTextBlock block = document->findBlockByNumber(qMax(0, position.line));
+    QTextBlock block = document()->findBlockByNumber(qMax(0, diagnostic.line));
     if (!block.isValid())
-        block = document->lastBlock();
+        block = document()->lastBlock();
     QTextCursor cursor(block);
     cursor.movePosition(QTextCursor::StartOfBlock);
-    cursor.movePosition(QTextCursor::Right, QTextCursor::MoveAnchor,
-                        qBound(0, position.character, qMax(0, block.length() - 1)));
+    const int offset = qBound(0, diagnostic.column, qMax(0, block.length() - 1));
+    cursor.movePosition(QTextCursor::Right, QTextCursor::MoveAnchor, offset);
     return cursor;
 }
 
@@ -434,33 +250,64 @@ void CodeEditor::highlightCurrentLine()
         selections.append(selection);
     }
 
-    for (const LspDiagnostic& diagnostic : m_diagnostics) {
-        QTextCursor start = cursorForPosition(document(), diagnostic.range.start);
-        QTextCursor end = cursorForPosition(document(), diagnostic.range.end);
-        if (!start.isNull() && !end.isNull() && start.position() != end.position()) {
-            QTextEdit::ExtraSelection selection;
-            const QColor color = diagnostic.severity == 1
-                                     ? pal().error
-                                     : diagnostic.severity == 2 ? pal().warning
-                                                                : pal().primary;
-            selection.format.setUnderlineStyle(QTextCharFormat::WaveUnderline);
-            selection.format.setUnderlineColor(color);
-            selection.cursor = start;
-            selection.cursor.setPosition(end.position(), QTextCursor::KeepAnchor);
-            selections.append(selection);
-        }
+    for (const nq::lang::Diagnostic& diagnostic : std::as_const(m_diagnostics)) {
+        QTextCursor start = cursorForDiagnostic(diagnostic);
+        if (start.isNull())
+            continue;
+        QTextCursor end = start;
+        end.movePosition(QTextCursor::Right, QTextCursor::KeepAnchor,
+                         qMax(1, diagnostic.length));
+        if (start.position() == end.position())
+            continue;
+
+        QTextEdit::ExtraSelection selection;
+        const QColor color = diagnostic.severity == nq::lang::DiagnosticSeverity::Error
+                                 ? pal().error
+                                 : diagnostic.severity == nq::lang::DiagnosticSeverity::Warning
+                                       ? pal().warning
+                                       : pal().primary;
+        selection.format.setUnderlineStyle(QTextCharFormat::WaveUnderline);
+        selection.format.setUnderlineColor(color);
+        selection.cursor = start;
+        selection.cursor.setPosition(end.position(), QTextCursor::KeepAnchor);
+        selections.append(selection);
     }
 
     setExtraSelections(selections);
 }
 
-void CodeEditor::setDiagnostics(const QVector<LspDiagnostic>& diagnostics)
+void CodeEditor::setDiagnostics(const QVector<nq::lang::Diagnostic>& diagnostics)
 {
     m_diagnostics = diagnostics;
+    int errors = 0;
+    int warnings = 0;
+    for (const nq::lang::Diagnostic& diagnostic : diagnostics) {
+        if (diagnostic.severity == nq::lang::DiagnosticSeverity::Error)
+            ++errors;
+        else if (diagnostic.severity == nq::lang::DiagnosticSeverity::Warning)
+            ++warnings;
+    }
     highlightCurrentLine();
+    emit diagnosticsChanged(errors, warnings);
 }
 
-void CodeEditor::showCompletions(const QVector<LspCompletion>& completions)
+void CodeEditor::requestCompletions()
+{
+    if (!m_provider || isReadOnly())
+        return;
+    nq::lang::CompletionRequest request;
+    request.text = toPlainText();
+    request.position = textCursor().position();
+    request.filePath = m_documentPath;
+    const QVector<nq::lang::CompletionItem> items = m_provider->completions(request);
+    if (items.isEmpty()) {
+        hideCompletions();
+        return;
+    }
+    showCompletions(items);
+}
+
+void CodeEditor::showCompletions(const QVector<nq::lang::CompletionItem>& completions)
 {
     if (completions.isEmpty() || isReadOnly()) {
         hideCompletions();
@@ -489,21 +336,23 @@ void CodeEditor::showCompletions(const QVector<LspCompletion>& completions)
                  p.primaryContainer.name(), p.onPrimaryContainer.name()));
 
     m_completionPopup->clear();
-    for (const LspCompletion& completion : completions) {
+    for (const nq::lang::CompletionItem& completion : completions) {
         QString text = completion.label;
         if (!completion.detail.isEmpty())
             text += QStringLiteral("    ") + completion.detail;
         auto* item = new QListWidgetItem(text);
         item->setData(Qt::UserRole, completion.insertText);
-        item->setToolTip(completion.detail);
-        item->setSizeHint(QSize(320, 28));
+        item->setData(Qt::UserRole + 1, completion.cursorOffset);
+        item->setToolTip(completion.documentation.isEmpty() ? completion.detail
+                                                            : completion.documentation);
+        item->setSizeHint(QSize(360, 28));
         m_completionPopup->addItem(item);
     }
     m_completionPopup->setCurrentRow(0);
 
     const QRect cursor = cursorRect();
-    const int width = 370;
-    const int height = qMin(230, m_completionPopup->count() * 28 + 10);
+    const int width = 430;
+    const int height = qMin(240, m_completionPopup->count() * 28 + 10);
     QPoint pos = viewport()->mapTo(this, cursor.bottomLeft());
     pos.rx() = qBound(4, pos.x(), qMax(4, this->width() - width - 4));
     if (pos.y() + height > this->height() - 4)
@@ -527,54 +376,30 @@ void CodeEditor::acceptCompletion()
     if (!item)
         return;
     const QString insert = item->data(Qt::UserRole).toString();
+    const int cursorOffset = item->data(Qt::UserRole + 1).toInt();
 
     QTextCursor cursor = textCursor();
     const int cursorPos = cursor.position();
-    int start = cursor.positionInBlock();
+    const int blockPosition = cursor.block().position();
     const QString line = cursor.block().text();
+    int start = cursor.positionInBlock();
     while (start > 0) {
         const QChar ch = line.at(start - 1);
         if (!(ch.isLetterOrNumber() || ch == QLatin1Char('_') || ch == QLatin1Char('-') ||
-              ch == QLatin1Char('.')))
+              ch == QLatin1Char('$')))
             break;
         --start;
     }
-    cursor.setPosition(cursor.block().position() + start);
+    cursor.setPosition(blockPosition + start);
+    const int insertionStart = cursor.position();
     cursor.setPosition(cursorPos, QTextCursor::KeepAnchor);
     cursor.insertText(insert);
+    if (cursorOffset >= 0) {
+        cursor.setPosition(qMin(insertionStart + cursorOffset, document()->characterCount() - 1));
+    }
     setTextCursor(cursor);
     hideCompletions();
     setFocus();
-}
-
-void CodeEditor::applyLspEdits(const QVector<LspTextEdit>& edits)
-{
-    if (edits.isEmpty())
-        return;
-    QVector<LspTextEdit> sorted = edits;
-    std::sort(sorted.begin(), sorted.end(), [](const LspTextEdit& a, const LspTextEdit& b) {
-        if (a.range.start.line != b.range.start.line)
-            return a.range.start.line > b.range.start.line;
-        return a.range.start.character > b.range.start.character;
-    });
-
-    const int original = textCursor().position();
-    QTextCursor edit(document());
-    edit.beginEditBlock();
-    for (const LspTextEdit& textEdit : sorted) {
-        QTextCursor start = cursorForPosition(document(), textEdit.range.start);
-        QTextCursor end = cursorForPosition(document(), textEdit.range.end);
-        if (start.isNull() || end.isNull())
-            continue;
-        start.setPosition(end.position(), QTextCursor::KeepAnchor);
-        start.insertText(textEdit.newText);
-    }
-    edit.endEditBlock();
-
-    QTextCursor cursor = textCursor();
-    cursor.setPosition(qMin(original, toPlainText().size()));
-    setTextCursor(cursor);
-    document()->setModified(true);
 }
 
 void CodeEditor::keyPressEvent(QKeyEvent* event)
@@ -607,12 +432,13 @@ void CodeEditor::keyPressEvent(QKeyEvent* event)
             return;
         }
         if (event->key() != Qt::Key_Shift && event->key() != Qt::Key_Control &&
-            event->key() != Qt::Key_Alt)
+            event->key() != Qt::Key_Alt) {
             hideCompletions();
+        }
     }
 
     if (ctrl && event->key() == Qt::Key_Space) {
-        emit completionRequested(currentLine() - 1, currentColumn() - 1);
+        requestCompletions();
         event->accept();
         return;
     }
@@ -628,11 +454,6 @@ void CodeEditor::keyPressEvent(QKeyEvent* event)
     }
     if (ctrl && event->key() == Qt::Key_H) {
         emit replaceRequested();
-        event->accept();
-        return;
-    }
-    if (shift && alt && event->key() == Qt::Key_F) {
-        emit formatRequested();
         event->accept();
         return;
     }
@@ -669,12 +490,9 @@ void CodeEditor::keyPressEvent(QKeyEvent* event)
 
     if (!event->text().isEmpty()) {
         const QChar ch = event->text().at(0);
-        if (ch.isLetterOrNumber() || ch == QLatin1Char('-') || ch == QLatin1Char('_')) {
-            const int position = textCursor().position();
-            QTimer::singleShot(90, this, [this, position] {
-                if (textCursor().position() == position)
-                    emit completionRequested(currentLine() - 1, currentColumn() - 1);
-            });
+        if (ch.isLetterOrNumber() || ch == QLatin1Char('_') || ch == QLatin1Char('-') ||
+            ch == QLatin1Char('$')) {
+            QTimer::singleShot(90, this, &CodeEditor::requestCompletions);
         }
     }
 }
@@ -773,10 +591,9 @@ void CodeEditor::insertLine(bool below)
 
 void CodeEditor::toggleComment()
 {
-    const bool javascript = m_syntaxMode == SyntaxMode::JavaScript;
-    const QString prefix = javascript ? QStringLiteral("// ") : QStringLiteral("# ");
-    const QString marker = javascript ? QStringLiteral("//") : QStringLiteral("#");
-    const int markerLength = marker.size();
+    const QString prefix = m_provider ? m_provider->lineCommentPrefix() : QStringLiteral("# ");
+    const QString marker = prefix.trimmed();
+    const int markerLength = qMax(1, marker.size());
     QTextCursor cursor = textCursor();
     const int start = cursor.selectionStart();
     const int end = cursor.selectionEnd();
@@ -868,12 +685,8 @@ void CodeEditor::autoIndentNewline()
     const QString line = cursor.block().text();
     QString indent = line.left(line.size() - line.trimmed().size());
     const QString trimmed = line.trimmed();
-    if (m_syntaxMode == SyntaxMode::JavaScript) {
-        if (trimmed.endsWith(QLatin1Char('{')) || trimmed.endsWith(QLatin1Char('(')) ||
-            trimmed.endsWith(QLatin1Char('['))) {
-            indent += QStringLiteral("  ");
-        }
-    } else if (trimmed.endsWith(QLatin1Char(':')) || trimmed == QLatin1String("-")) {
+    if (trimmed.endsWith(QLatin1Char(':')) || trimmed.endsWith(QLatin1Char('{')) ||
+        trimmed.endsWith(QLatin1Char('(')) || trimmed.endsWith(QLatin1Char('['))) {
         indent += QStringLiteral("  ");
     }
     cursor.insertText(QLatin1Char('\n') + indent);

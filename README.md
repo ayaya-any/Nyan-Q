@@ -19,7 +19,7 @@ Material 3 风格组件，通过本机 REST API 管理 Mihomo 内核。
 - 系统代理、TUN、局域网代理开关
 - 导入 Clash / Mihomo YAML 订阅或本地文件，支持配额、到期时间、自动更新和热重载
 - 全窗口 YAML 编辑器，支持查找替换、未保存保护、配置重命名
-- 编辑器接入独立 Rust 实现的 `yaml-language-server`，提供补全、诊断和格式化
+- 内置语言插件为 YAML 与 JavaScript 提供语法高亮、语法检查和代码提示，无外部 LSP 进程
 - JavaScript 配置覆写：QuickJS 独立沙箱、全局/订阅专属脚本、排序、远程脚本更新、历史版本与回滚、预览差异
 - 深色 / 浅色 / 跟随系统主题
 - 系统托盘、单实例、开机启动、启动时最小化、关闭到托盘
@@ -67,9 +67,10 @@ build\Release\Nyan-Q.exe
 .\scripts\package.ps1 -QtDir "D:\Qt\6.12.0\msvc2022_64"
 ```
 
-打包脚本会自动从官方来源下载固定版本的 Mihomo、Wintun 和 YAML 语言服务，
+打包脚本会自动从官方来源下载固定版本的 Mihomo、Wintun 和 libyaml，
 制作安装包时还会下载 Inno Setup 和 VC++ x64 运行库。下载包经过 SHA-256
-校验；YAML 语言服务使用独立的 Rust 预编译二进制，不再依赖 Node.js 或 npm。
+校验；QuickJS 由 CMake FetchContent 获取，编辑器语言服务为内置模块，
+不依赖 Node.js、Python 或任何外部 LSP 进程。
 `tools/`、`third_party/` 和 `.cache/deps/` 仅作为本地生成目录，不提交到仓库。
 重复构建会复用缓存；需要重新下载时运行 `.\scripts\fetch-deps.ps1 -Installer -Force`。
 
@@ -132,8 +133,7 @@ build\Release\Nyan-Q.exe
 | `F3` / `Shift+F3` | 下一个 / 上一个匹配 |
 | `Ctrl+/` | 切换行注释 |
 | `Alt+↑` / `Alt+↓` | 移动当前行 |
-| `Shift+Alt+F` | 格式化文档（YAML 编辑器） |
-| `Ctrl+Space` | 代码提示（YAML 编辑器） |
+| `Ctrl+Space` | 代码提示（YAML / 脚本编辑器） |
 | `Ctrl+W` | 关闭编辑器 |
 
 ## 数据目录
@@ -190,17 +190,17 @@ $env:NYANQ_DATA_DIR = "D:\NyanQData"
 ctest --test-dir build -C Release --output-on-failure
 ```
 
-## 语言服务
+## 语言支持
 
-编辑器使用标准 LSP stdio 客户端，发布包内置独立进程：
+编辑器不再依赖外部 LSP 进程。语言能力通过内部插件注册表提供：
 
-- [yaml-language-server-rust](https://github.com/ayaya-any/yaml-language-server-rust) v0.1.0
-- 单一可执行文件 `lsp/yaml-language-server.exe`，无需 Node.js、Python 或其他运行时
+- `yaml`：基于 libyaml 的语法诊断（含重复键、未定义锚点）、Mihomo 配置键和枚举值补全。
+- `javascript`：基于 QuickJS 编译阶段的语法诊断、缺失 `main` 提示、关键字/内建对象/配置字段补全。
 
-便携包和安装包均包含该语言服务，用于提供 YAML 补全、诊断和格式化。
-语言服务配置可通过程序目录下的 `lsp-servers.json` 覆盖，示例见
-`lsp-servers.example.json`。如果曾基于旧版示例创建过配置，请把 `command`
-改为 `${app}/lsp/yaml-language-server.exe`，并移除 Node.js 和 `server.js` 参数。
+新增语言只需实现 `LanguageProvider`，在 `LanguageRegistry` 中注册一个插件条目，
+无需修改编辑器或安装外部运行时。插件接口包含诊断、补全、语法高亮和行注释前缀。
+实现位于 [`src/lang/`](src/lang/)，扩展说明见
+[内置语言插件](docs/language-plugins.md)。
 
 ## 已知限制
 
@@ -208,6 +208,7 @@ ctest --test-dir build -C Release --output-on-failure
 - 仅支持 Clash / Mihomo YAML，纯 Base64 节点列表不会自动转换
 - TUN 模式需要管理员权限；开启 TUN 或启动时检测到 TUN 已启用，会请求 UAC 提权并重启应用，取消授权则关闭 TUN
 - 界面当前仅提供中文
+- 内置语言服务提供语法高亮、语法检查与补全；不提供完整的文档格式化、重命名等 LSP 高级功能
 - 内核版本固定为 `v1.19.33`，升级时更新 `scripts/fetch-deps.ps1` 中的版本与校验和
 - JavaScript 覆写会在脚本生效时重新序列化 YAML，原订阅中的注释和自定义排版不会保留；
   字段、值、顺序和未知扩展键会保留

@@ -51,6 +51,22 @@ nyanq_add_test(test_yaml_document
     LIBS nyanq_scripting
 )
 
+nyanq_add_test(test_language_services
+    SOURCES
+        test_language_services.cpp
+    LIBS nyanq_lang
+)
+
+nyanq_add_test(test_code_editor
+    SOURCES
+        test_code_editor.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/ui/editor/CodeEditor.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/app/Theme.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/app/Fonts.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../resources/resources.qrc
+    LIBS nyanq_lang Qt6::Widgets Qt6::Gui
+)
+
 nyanq_add_test(test_script_engine
     SOURCES
         test_script_engine.cpp

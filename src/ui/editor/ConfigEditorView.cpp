@@ -3,13 +3,11 @@
 #include "app/Fonts.h"
 #include "app/Theme.h"
 #include "core/ClashController.h"
-#include "lsp/LspClient.h"
-#include "lsp/LspServerRegistry.h"
+#include "lang/LanguageRegistry.h"
 #include "ui/dialogs/ConfirmDialog.h"
 #include "ui/editor/CodeEditor.h"
 #include "ui/widgets/MaterialWidgets.h"
 
-#include <QFileInfo>
 #include <QHBoxLayout>
 #include <QKeyEvent>
 #include <QLabel>
@@ -18,7 +16,6 @@
 #include <QShortcut>
 #include <QTextCursor>
 #include <QTextDocument>
-#include <QTimer>
 #include <QVBoxLayout>
 
 namespace {
@@ -81,17 +78,10 @@ ConfigEditorView::ConfigEditorView(ClashController* controller,
 
     buildUi();
     wire();
+    m_editor->setDocumentPath(m_filePath);
+    m_editor->setLanguageProvider(
+        nq::lang::LanguageRegistry::instance().providerForPath(m_filePath));
     loadContent();
-    startLanguageServer();
-}
-
-ConfigEditorView::~ConfigEditorView()
-{
-    if (m_lsp) {
-        disconnect(m_lsp, nullptr, this, nullptr);
-        m_lsp->stop();
-        m_lsp = nullptr;
-    }
 }
 
 void ConfigEditorView::buildUi()
@@ -299,21 +289,12 @@ void ConfigEditorView::buildUi()
     connect(m_nameEdit, &QLineEdit::editingFinished, this, &ConfigEditorView::commitName);
     connect(m_editor, &CodeEditor::searchRequested, this, [this] { showFindBar(false); });
     connect(m_editor, &CodeEditor::replaceRequested, this, [this] { showFindBar(true); });
-    connect(m_editor, &CodeEditor::formatRequested, this, &ConfigEditorView::formatContent);
     connect(m_editor, &CodeEditor::cursorInfoChanged, this,
             &ConfigEditorView::updateCursorStatus);
 }
 
 void ConfigEditorView::wire()
 {
-    m_changeTimer = new QTimer(this);
-    m_changeTimer->setSingleShot(true);
-    m_changeTimer->setInterval(140);
-    connect(m_changeTimer, &QTimer::timeout, this, [this] {
-        if (m_lsp && m_lsp->isReady() && !m_loading)
-            m_lsp->changeDocument(m_filePath, m_editor->toPlainText());
-    });
-
     connect(m_editor->document(), &QTextDocument::modificationChanged, this,
             [this](bool) { updateModifiedState(); });
     connect(m_editor, &QPlainTextEdit::textChanged, this, [this] {
@@ -321,19 +302,25 @@ void ConfigEditorView::wire()
         m_statsLabel->setText(QStringLiteral("%1 行 · %2 字符")
                                   .arg(m_editor->document()->blockCount())
                                   .arg(m_editor->toPlainText().size()));
-        if (!m_loading && m_lsp && m_lsp->isReady())
-            m_changeTimer->start();
     });
     connect(&Theme::instance(), &Theme::changed, this, [this] {
         m_editor->update();
         update();
     });
-
-    connect(m_editor, &CodeEditor::completionRequested, this,
-            [this](int line, int character) {
-                if (!m_lsp || !m_lsp->isReady())
-                    return;
-                m_completionRequest = m_lsp->requestCompletion(m_filePath, line, character);
+    connect(m_editor, &CodeEditor::diagnosticsChanged, this,
+            [this](int errors, int warnings) {
+                if (errors == 0 && warnings == 0) {
+                    m_issueLabel->setText(QStringLiteral("无诊断"));
+                    m_issueLabel->setStyleSheet(
+                        QStringLiteral("color: %1;").arg(pal().onSurfaceVariant.name()));
+                } else {
+                    m_issueLabel->setText(QStringLiteral("%1 错误 · %2 警告")
+                                              .arg(errors)
+                                              .arg(warnings));
+                    m_issueLabel->setStyleSheet(
+                        QStringLiteral("color: %1;")
+                            .arg((errors > 0 ? pal().error : pal().warning).name()));
+                }
             });
 
     auto* saveShortcut = new QShortcut(QKeySequence::Save, this);
@@ -354,80 +341,6 @@ void ConfigEditorView::wire()
     auto* prevShortcut = new QShortcut(QKeySequence(Qt::SHIFT | Qt::Key_F3), this);
     prevShortcut->setContext(Qt::WidgetWithChildrenShortcut);
     connect(prevShortcut, &QShortcut::activated, this, [this] { findNext(true); });
-
-    m_lsp = new LspClient(this);
-    connect(m_lsp, &LspClient::ready, this, [this] {
-        if (!m_lsp || m_filePath.isEmpty())
-            return;
-        m_lsp->openDocument(m_filePath, m_editor->toPlainText());
-    });
-    connect(m_lsp, &LspClient::errorMessage, this, [this](const QString& message) {
-        setFeedback(message, true);
-    });
-    connect(m_lsp, &LspClient::logMessage, this, [this](const QString& message) {
-        if (message.contains(QStringLiteral("error"), Qt::CaseInsensitive))
-            setFeedback(message, true);
-    });
-    connect(m_lsp, &LspClient::diagnosticsReady, this,
-            [this](const QString& path, const QVector<LspDiagnostic>& diagnostics) {
-                if (QFileInfo(path).absoluteFilePath() !=
-                    QFileInfo(m_filePath).absoluteFilePath())
-                    return;
-                m_editor->setDiagnostics(diagnostics);
-                int errors = 0;
-                int warnings = 0;
-                for (const LspDiagnostic& diagnostic : diagnostics) {
-                    if (diagnostic.severity == 1)
-                        ++errors;
-                    else if (diagnostic.severity == 2)
-                        ++warnings;
-                }
-                if (diagnostics.isEmpty()) {
-                    m_issueLabel->setText(QStringLiteral("无诊断"));
-                    m_issueLabel->setStyleSheet(
-                        QStringLiteral("color: %1;").arg(pal().onSurfaceVariant.name()));
-                } else {
-                    m_issueLabel->setText(QStringLiteral("%1 错误 · %2 警告")
-                                              .arg(errors)
-                                              .arg(warnings));
-                    m_issueLabel->setStyleSheet(
-                        QStringLiteral("color: %1;")
-                            .arg((errors > 0 ? pal().error : pal().warning).name()));
-                }
-            });
-    connect(m_lsp, &LspClient::completionReady, this,
-            [this](int requestId, const QVector<LspCompletion>& completions) {
-                if (requestId != m_completionRequest)
-                    return;
-                m_editor->showCompletions(completions);
-            });
-    connect(m_lsp, &LspClient::formattingReady, this,
-            [this](int requestId, const QVector<LspTextEdit>& edits) {
-                if (requestId != m_formatRequest)
-                    return;
-                if (edits.isEmpty()) {
-                    setFeedback(QStringLiteral("LSP 认为当前格式无需调整"));
-                    return;
-                }
-                m_editor->applyLspEdits(edits);
-                setFeedback(QStringLiteral("已由 %1 格式化").arg(m_serverProfile.name));
-            });
-}
-
-void ConfigEditorView::startLanguageServer()
-{
-    if (!m_lsp)
-        return;
-    LspServerProfile profile = m_serverProfile;
-    if (profile.id.isEmpty()) {
-        profile = LspServerRegistry::instance().profileForPath(m_filePath);
-        m_serverProfile = profile;
-    }
-    if (profile.id.isEmpty()) {
-        setFeedback(QStringLiteral("没有可用的语言服务"), true);
-        return;
-    }
-    m_lsp->start(profile, QFileInfo(m_filePath).absolutePath());
 }
 
 void ConfigEditorView::loadContent()
@@ -452,22 +365,17 @@ void ConfigEditorView::loadContent()
         return;
     }
 
-    m_loading = true;
     m_editor->setPlainText(QString::fromUtf8(data));
     m_originalText = m_editor->toPlainText();
     QTextCursor cursor = m_editor->textCursor();
     cursor.movePosition(QTextCursor::Start);
     m_editor->setTextCursor(cursor);
     m_editor->document()->setModified(false);
-    m_loading = false;
     m_statsLabel->setText(QStringLiteral("%1 行 · %2 字符")
                               .arg(m_editor->document()->blockCount())
                               .arg(m_editor->toPlainText().size()));
     updateModifiedState();
 
-    m_serverProfile = LspServerRegistry::instance().profileForPath(m_filePath);
-    if (m_serverProfile.id.isEmpty())
-        m_serverProfile = LspServerRegistry::instance().defaultProfile();
     m_editor->setFocus();
 }
 
@@ -483,11 +391,6 @@ void ConfigEditorView::saveContent()
     if (!m_controller->profileStore()->saveConfigContent(m_profile.id, content, &error)) {
         setFeedback(error, true);
         return;
-    }
-    if (m_lsp && m_lsp->isReady()) {
-        m_changeTimer->stop();
-        m_lsp->changeDocument(m_filePath, m_editor->toPlainText());
-        m_lsp->saveDocument(m_filePath);
     }
     m_originalText = m_editor->toPlainText();
     m_editor->document()->setModified(false);
@@ -506,32 +409,13 @@ void ConfigEditorView::revertContent()
                             QStringLiteral("还原"), true)) {
         return;
     }
-    m_loading = true;
     m_editor->setPlainText(m_originalText);
     QTextCursor cursor = m_editor->textCursor();
     cursor.movePosition(QTextCursor::Start);
     m_editor->setTextCursor(cursor);
     m_editor->document()->setModified(false);
-    m_loading = false;
-    if (m_lsp && m_lsp->isReady())
-        m_lsp->changeDocument(m_filePath, m_editor->toPlainText());
     setFeedback(QStringLiteral("已还原到打开时的内容"));
     updateModifiedState();
-}
-
-void ConfigEditorView::formatContent()
-{
-    if (m_readError)
-        return;
-    if (!m_lsp || !m_lsp->isReady()) {
-        setFeedback(QStringLiteral("LSP 尚未就绪，暂时无法格式化"), true);
-        return;
-    }
-    m_changeTimer->stop();
-    m_lsp->changeDocument(m_filePath, m_editor->toPlainText());
-    m_formatRequest = m_lsp->requestFormatting(m_filePath);
-    if (m_formatRequest < 0)
-        setFeedback(QStringLiteral("LSP 格式化请求失败"), true);
 }
 
 void ConfigEditorView::updateModifiedState()
