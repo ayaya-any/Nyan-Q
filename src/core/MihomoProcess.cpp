@@ -80,45 +80,19 @@ MihomoProcess::MihomoProcess(QObject* parent)
             });
 #ifdef Q_OS_WIN
     m_process.setCreateProcessArgumentsModifier([](QProcess::CreateProcessArguments* args) {
-        if (GetConsoleWindow()) {
-            // Qt would otherwise add CREATE_NO_WINDOW for GUI parents, which
-            // leaves the child without a console and prevents CTRL_BREAK.
-            args->flags &= ~CREATE_NO_WINDOW;
-            args->flags |= CREATE_NEW_PROCESS_GROUP;
+        // A GUI launch (installer, Explorer, shortcut) has no console. Give
+        // Mihomo its own hidden console so CTRL_BREAK_EVENT remains available
+        // without allocating a visible console in the parent process.
+        args->flags &= ~CREATE_NO_WINDOW;
+        args->flags |= CREATE_NEW_PROCESS_GROUP;
+        if (!GetConsoleWindow()) {
+            args->flags |= CREATE_NEW_CONSOLE;
+            if (args->startupInfo) {
+                args->startupInfo->dwFlags |= STARTF_USESHOWWINDOW;
+                args->startupInfo->wShowWindow = SW_HIDE;
+            }
         }
     });
-#endif
-}
-
-bool MihomoProcess::ensureConsoleForGracefulStop()
-{
-#ifdef Q_OS_WIN
-    static const bool prepared = [] {
-        if (GetConsoleWindow())
-            return true;
-
-        const HANDLE savedInput = GetStdHandle(STD_INPUT_HANDLE);
-        const HANDLE savedOutput = GetStdHandle(STD_OUTPUT_HANDLE);
-        const HANDLE savedError = GetStdHandle(STD_ERROR_HANDLE);
-
-        if (!AllocConsole())
-            return false;
-
-        if (const HWND console = GetConsoleWindow())
-            ShowWindow(console, SW_HIDE);
-
-        // Keep the process' inherited stdio usable (e.g. --smoke-test output).
-        if (savedInput && savedInput != INVALID_HANDLE_VALUE)
-            SetStdHandle(STD_INPUT_HANDLE, savedInput);
-        if (savedOutput && savedOutput != INVALID_HANDLE_VALUE)
-            SetStdHandle(STD_OUTPUT_HANDLE, savedOutput);
-        if (savedError && savedError != INVALID_HANDLE_VALUE)
-            SetStdHandle(STD_ERROR_HANDLE, savedError);
-        return true;
-    }();
-    return prepared;
-#else
-    return true;
 #endif
 }
 
@@ -169,7 +143,6 @@ void MihomoProcess::start(const QString& configPath, int controllerPort, const Q
 
     m_buffer.clear();
     m_stopping = false;
-    ensureConsoleForGracefulStop();
     QDir().mkpath(m_dataDirectory);
     m_process.setWorkingDirectory(m_dataDirectory);
     m_process.setProgram(m_program);
@@ -193,9 +166,7 @@ void MihomoProcess::stop()
         return;
     m_stopping = true;
 #ifdef Q_OS_WIN
-    if (GetConsoleWindow() &&
-        GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT,
-                                 static_cast<DWORD>(m_process.processId()))) {
+    if (sendCtrlBreak()) {
         emit logLine(QStringLiteral("info\t已请求 Mihomo 优雅退出（CTRL_BREAK_EVENT）"));
         m_killTimer.start(6000);
         return;
@@ -208,6 +179,30 @@ void MihomoProcess::stop()
     m_process.terminate();
 }
 
+#ifdef Q_OS_WIN
+bool MihomoProcess::sendCtrlBreak()
+{
+    const DWORD pid = static_cast<DWORD>(m_process.processId());
+    if (pid == 0)
+        return false;
+
+    if (GetConsoleWindow())
+        return GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT, pid) != 0;
+
+    // A GUI launch (installer, Explorer, shortcut) gives Mihomo its own hidden
+    // console. Attach to it only long enough to deliver CTRL_BREAK_EVENT, then
+    // detach again so Nyan-Q never owns a visible console window.
+    if (!AttachConsole(pid))
+        return false;
+
+    SetConsoleCtrlHandler(nullptr, TRUE);
+    const bool sent = GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT, pid) != 0;
+    SetConsoleCtrlHandler(nullptr, FALSE);
+    FreeConsole();
+    return sent;
+}
+#endif
+
 bool MihomoProcess::stopAndWait(int timeoutMs)
 {
     if (!isRunning())
@@ -215,14 +210,10 @@ bool MihomoProcess::stopAndWait(int timeoutMs)
     m_stopping = true;
     m_killTimer.stop();
 #ifdef Q_OS_WIN
-    bool graceful = false;
-    if (GetConsoleWindow() &&
-        GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT,
-                                 static_cast<DWORD>(m_process.processId()))) {
+    const bool graceful = sendCtrlBreak();
+    if (graceful)
         emit logLine(QStringLiteral("info\t已请求 Mihomo 优雅退出（CTRL_BREAK_EVENT）"));
-        graceful = true;
-    }
-    if (!graceful) {
+    else {
         emit logLine(QStringLiteral("warning\t无法发送控制台退出信号，回退为终止进程"));
         m_process.terminate();
     }

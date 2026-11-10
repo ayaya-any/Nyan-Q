@@ -366,8 +366,6 @@ void ClashController::initialize(bool demo, bool ephemeral)
     m_settingsStore.save(m_settings);
 
     m_demo = demo;
-    if (!m_demo)
-        MihomoProcess::ensureConsoleForGracefulStop();
     m_profiles.initialize(AppPaths::profilesDir());
     if (m_demo)
         m_profiles.seedDemoProfiles();

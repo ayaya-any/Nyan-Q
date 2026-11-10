@@ -13,10 +13,6 @@ public:
     explicit MihomoProcess(QObject* parent = nullptr);
     ~MihomoProcess() override;
 
-    // Attaches (or allocates and hides) a console so Windows CTRL_BREAK_EVENT
-    // can be delivered to Mihomo, which handles SIGINT/SIGTERM gracefully.
-    static bool ensureConsoleForGracefulStop();
-
     void setProgram(const QString& path);
     void setDataDirectory(const QString& path);
     QString program() const { return m_program; }
@@ -36,6 +32,9 @@ signals:
 private:
     void consumeOutput(bool flush = false);
     void forwardLine(const QString& line);
+#ifdef Q_OS_WIN
+    bool sendCtrlBreak();
+#endif
 
     QProcess m_process;
     QTimer m_killTimer;
