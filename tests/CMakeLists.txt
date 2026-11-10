@@ -67,6 +67,18 @@ nyanq_add_test(test_code_editor
     LIBS nyanq_lang Qt6::Widgets Qt6::Gui
 )
 
+nyanq_add_test(test_message_dialog
+    SOURCES
+        test_message_dialog.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/ui/dialogs/MessageDialog.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/ui/dialogs/MaterialDialog.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/ui/widgets/MaterialWidgets.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/app/Theme.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/app/Fonts.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../resources/resources.qrc
+    LIBS Qt6::Widgets Qt6::Gui
+)
+
 nyanq_add_test(test_script_engine
     SOURCES
         test_script_engine.cpp

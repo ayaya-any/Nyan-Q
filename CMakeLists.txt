@@ -164,6 +164,7 @@ set(NYANQ_SOURCES
     src/ui/pages/SettingsPage.cpp
 
     src/ui/dialogs/MaterialDialog.cpp
+    src/ui/dialogs/MessageDialog.cpp
     src/ui/dialogs/ProfileDialog.cpp
     src/ui/dialogs/ConfirmDialog.cpp
     src/ui/dialogs/ScriptDialogs.cpp

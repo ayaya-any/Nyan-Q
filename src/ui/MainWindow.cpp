@@ -8,6 +8,7 @@
 #include "core/Formatters.h"
 #include "ui/Sidebar.h"
 #include "ui/TitleBar.h"
+#include "ui/dialogs/MessageDialog.h"
 #include "ui/editor/ConfigEditorView.h"
 #include "ui/pages/ConnectionsPage.h"
 #include "ui/pages/DashboardPage.h"
@@ -27,7 +28,6 @@
 #include <QDir>
 #include <QHBoxLayout>
 #include <QMenu>
-#include <QMessageBox>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPainterPath>
@@ -617,10 +617,7 @@ void MainWindow::reportTunElevationIssue(const QString& message, bool warning)
                             4000);
         return;
     }
-    if (warning)
-        QMessageBox::warning(this, QStringLiteral("TUN 模式"), message);
-    else
-        QMessageBox::information(this, QStringLiteral("TUN 模式"), message);
+    MessageDialog::showMessage(this, QStringLiteral("TUN 模式"), message, warning);
 }
 
 void MainWindow::toggleMaximize()

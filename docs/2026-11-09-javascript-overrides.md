@@ -440,6 +440,7 @@ URL (HTTPS，或回环 HTTP 仅测试)
 | `test_yaml_document` | YAML 类型、顺序、锚点/合并键、特殊字段、未知 tag、diff、多文档错误 |
 | `test_language_services` | 内置语言插件注册、YAML/JavaScript 语法诊断、重复键、补全与配置字段补全 |
 | `test_code_editor` | 补全弹窗、YAML/JavaScript 补全插入位置、诊断波浪线数据 |
+| `test_message_dialog` | Material 信息/警告弹窗渲染与模态显示 |
 | `test_script_engine` | 单脚本修改、console、语法/运行错误、无限循环超时、取消、内存超限、Promise 成功/失败/永不完成、非法返回值、宿主 API 不存在、只编译校验 |
 | `test_script_repository` | 增删改查、历史版本、回滚、保留上限、损坏元数据、路径穿越 |
 | `test_script_binding_manager` | 全局/订阅、排除、顺序、共享、清理 |
@@ -461,7 +462,7 @@ URL (HTTPS，或回环 HTTP 仅测试)
 本机测试结果（Release / MSVC 19.44 / Qt 6.12.0 / Windows 11）：
 
 ```text
-100% tests passed, 0 tests failed out of 15
+100% tests passed, 0 tests failed out of 16
 ```
 
 冒烟结果：
