@@ -78,7 +78,7 @@ build\Release\Nyan-Q.exe
 输出：
 
 - `dist\Nyan-Q\`
-- `dist\Nyan-Q-0.1.4-win64.zip`
+- `dist\Nyan-Q-0.1.5-win64.zip`
 
 制作简体中文安装包：
 
@@ -88,7 +88,7 @@ build\Release\Nyan-Q.exe
 
 输出：
 
-- `dist\Nyan-Q-0.1.4-win64-setup.exe`
+- `dist\Nyan-Q-0.1.5-win64-setup.exe`
 - 默认安装到 `%LOCALAPPDATA%\Programs\Nyan-Q`
 - 安装前检测并安装所需的 MSVC x64 运行库
 - 卸载默认保留 `%LOCALAPPDATA%\Nyan-Q` 中的配置和订阅
@@ -96,7 +96,7 @@ build\Release\Nyan-Q.exe
 安装包由 `nyan-setup.exe pack` 生成，可用以下命令无界面校验归档完整性：
 
 ```powershell
-.\dist\Nyan-Q-0.1.4-win64-setup.exe --extract-to .\build\installer-verify
+.\dist\Nyan-Q-0.1.5-win64-setup.exe --extract-to .\build\installer-verify
 ```
 
 ### 发布
