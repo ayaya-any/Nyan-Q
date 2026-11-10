@@ -60,9 +60,9 @@ $LibYamlVersion = "0.2.5"
 $LibYamlUrl = "https://codeload.github.com/yaml/libyaml/zip/refs/tags/$LibYamlVersion"
 $LibYamlZipSha256 = "14605BAA6DFC0C4D3AB943A46A627413C0388736E453B67FE4E90C9683C8CBC8"
 
-$NyanSetupVersion = "0.1.0"
+$NyanSetupVersion = "0.1.1"
 $NyanSetupUrl = "https://github.com/ayaya-any/Nyan-setup/releases/download/v$NyanSetupVersion/nyan-setup.exe"
-$NyanSetupSha256 = "AEE1EC2B0275FA100F46A88F71AE496AB2FF179A867C88470FC2542485F0EE72"
+$NyanSetupSha256 = "483E002D4ECABBA46ABC1B95E4AD61C64E9192F0BDEFFABCA821D08CB8BD089A"
 
 $VCRedistUrl = "https://download.visualstudio.microsoft.com/download/pr/990c720a-46ce-4dc7-87b9-c2eb615d34b9/CC0FF0EB1DC3F5188AE6300FAEF32BF5BEEBA4BDD6E8E445A9184072096B713B/VC_redist.x64.exe"
 $VCRedistSha256 = "CC0FF0EB1DC3F5188AE6300FAEF32BF5BEEBA4BDD6E8E445A9184072096B713B"

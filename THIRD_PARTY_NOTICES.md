@@ -48,7 +48,7 @@ libyaml 以静态库形式链接进 Nyan-Q，仅处理内存中的 YAML 文本�
 
 ## Nyan Setup
 
-- 版本：v0.1.0（`nyan-setup.exe`，由 `scripts/fetch-deps.ps1` 下载并校验）。
+- 版本：v0.1.1（`nyan-setup.exe`，由 `scripts/fetch-deps.ps1` 下载并校验）。
 - 用途：构建 Windows 安装包的自解压安装器生成器。
 - 授权：MIT License。
 - 许可证：`licenses/Nyan-Setup-LICENSE.txt`。
@@ -96,7 +96,7 @@ Nyan Setup 本身不随应用运行；其生成的安装器 Stub 使用静态 CR
 Wintun，并按 SHA-256 校验。QuickJS-ng 由 CMake FetchContent 按固定 URL
 和 SHA-256 下载；离线构建时可通过
 `-DFETCHCONTENT_SOURCE_DIR_QUICKJS=<dir>` 指定本地源码。安装包构建工具为
-Nyan Setup v0.1.0（https://github.com/ayaya-any/Nyan-setup），其生成的
+Nyan Setup v0.1.1（https://github.com/ayaya-any/Nyan-setup），其生成的
 安装器不依赖 Inno Setup、.NET 或外部运行库。
 
 本文件不构成法律意见。分发二进制包前，请根据实际分发方式重新审阅所有
