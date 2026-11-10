@@ -1,7 +1,7 @@
 # Nyan-Q
 
 <p align="center">
-  <img src="docs/app-icon.png" width="88" alt="Nyan-Q">
+  <img src="docs/screenshots/app-icon.png" width="88" alt="Nyan-Q">
 </p>
 
 面向 Windows 的 Clash / Mihomo 桌面客户端，使用 Qt 6 Widgets、C++20 与
@@ -9,7 +9,7 @@ Material 3 风格组件，通过本机 REST API 管理 Mihomo 内核。
 
 | 深色主题 | 浅色主题 |
 |:---:|:---:|
-| ![深色仪表盘](docs/dashboard.png) | ![浅色仪表盘](docs/dashboard-light.png) |
+| ![深色仪表盘](docs/screenshots/dashboard.png) | ![浅色仪表盘](docs/screenshots/dashboard-light.png) |
 
 ## 功能
 
@@ -124,7 +124,7 @@ build\Release\Nyan-Q.exe
 
 | 脚本列表 | 脚本编辑器 | 测试与差异 |
 |:---:|:---:|:---:|
-| ![脚本列表](docs/scripts.png) | ![脚本编辑器](docs/script-editor.png) | ![脚本测试](docs/script-test.png) |
+| ![脚本列表](docs/screenshots/scripts.png) | ![脚本编辑器](docs/screenshots/script-editor.png) | ![脚本测试](docs/screenshots/script-test.png) |
 
 配置名称可直接点击编辑，右侧铅笔按钮用于快速聚焦名称输入框。
 
@@ -180,9 +180,9 @@ $env:NYANQ_DATA_DIR = "D:\NyanQData"
 截图：
 
 ```powershell
-.\build\Release\Nyan-Q.exe --demo --screenshot .\docs\dashboard.png --page dashboard
-.\build\Release\Nyan-Q.exe --screenshot-editor .\docs\config-editor.png
-.\build\Release\Nyan-Q.exe --demo --screenshot-script .\docs\script-editor.png
+.\build\Release\Nyan-Q.exe --demo --screenshot .\docs\screenshots\dashboard.png --page dashboard
+.\build\Release\Nyan-Q.exe --screenshot-editor .\docs\screenshots\config-editor.png
+.\build\Release\Nyan-Q.exe --demo --screenshot-script .\docs\screenshots\script-editor.png
 ```
 
 冒烟测试：

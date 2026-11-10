@@ -7,7 +7,7 @@ QuickJS 集成方案、模块与数据模型、配置处理流程、安全边界
 
 | 脚本列表 | 脚本编辑器 | 测试与差异 |
 |:---:|:---:|:---:|
-| ![脚本列表](scripts.png) | ![脚本编辑器](script-editor.png) | ![脚本测试](script-test.png) |
+| ![脚本列表](screenshots/scripts.png) | ![脚本编辑器](screenshots/script-editor.png) | ![脚本测试](screenshots/script-test.png) |
 
 ---
 
