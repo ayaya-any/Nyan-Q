@@ -554,7 +554,7 @@ bool MainWindow::promptForTunAtStartup()
 {
     if (!m_controller || !m_controller->tunEnabled())
         return true;
-    if (nq::service::ServiceClient::isAvailable())
+    if (nq::service::ServiceClient::waitUntilAvailable(2500))
         return true;
 
     QString error;
@@ -578,6 +578,12 @@ bool MainWindow::requestTunElevationInternal(bool fromStartup)
     }
 
     m_elevationPending = true;
+    if (nq::service::ServiceClient::waitUntilAvailable(1200)) {
+        m_elevationPending = false;
+        if (!fromStartup && m_controller)
+            m_controller->setTunEnabled(true);
+        return true;
+    }
     QString error;
     const bool installed = nq::service::ServiceInstaller::install(&error);
     m_elevationPending = false;

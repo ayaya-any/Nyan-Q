@@ -5,6 +5,7 @@
 #include <QJsonDocument>
 #include <QLocalSocket>
 #include <QRegularExpression>
+#include <QThread>
 
 namespace nq::service {
 
@@ -125,6 +126,18 @@ bool ServiceClient::isAvailable()
     return ping();
 }
 
+bool ServiceClient::waitUntilAvailable(int timeoutMs)
+{
+    QElapsedTimer timer;
+    timer.start();
+    do {
+        if (isAvailable())
+            return true;
+        QThread::msleep(150);
+    } while (timer.elapsed() < timeoutMs);
+    return false;
+}
+
 bool ServiceClient::start(const QString& configPath, const QString& dataDir, int controllerPort,
                           const QString& secret, QString* error)
 {
@@ -149,7 +162,7 @@ QJsonObject ServiceClient::status(quint64 since, QString* error)
     QJsonObject payload;
     payload.insert(QStringLiteral("command"), QStringLiteral("status"));
     payload.insert(QStringLiteral("since"), static_cast<double>(since));
-    return request(payload, 1500, error);
+    return request(payload, 800, error);
 }
 
 }  // namespace nq::service

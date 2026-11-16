@@ -132,6 +132,24 @@ bool installService(const QStringList& args, QString* error)
         return false;
     }
 
+    const QStringList requiredSources = {
+        QDir(sourceDir).filePath(QStringLiteral("nyanq-service.exe")),
+        QDir(sourceDir).filePath(QStringLiteral("Qt6Core.dll")),
+        QDir(sourceDir).filePath(QStringLiteral("Qt6Network.dll")),
+        QDir(sourceDir).filePath(QStringLiteral("vcruntime140.dll")),
+        QDir(sourceDir).filePath(QStringLiteral("vcruntime140_1.dll")),
+        QDir(sourceDir).filePath(QStringLiteral("msvcp140.dll")),
+        QDir(sourceDir).filePath(QStringLiteral("mihomo.exe")),
+        QDir(sourceDir).filePath(QStringLiteral("wintun.dll")),
+    };
+    for (const QString& source : requiredSources) {
+        if (!QFileInfo::exists(source)) {
+            if (error)
+                *error = QStringLiteral("Helper 安装文件缺失：%1").arg(source);
+            return false;
+        }
+    }
+
     stopAndDeleteService();
 
     const QStringList rootFiles = {

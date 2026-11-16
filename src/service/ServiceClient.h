@@ -10,6 +10,7 @@ namespace nq::service {
 class ServiceClient final {
 public:
     static bool isAvailable();
+    static bool waitUntilAvailable(int timeoutMs = 3000);
     static bool ping(QString* error = nullptr);
     static bool start(const QString& configPath, const QString& dataDir, int controllerPort,
                       const QString& secret, QString* error = nullptr);
