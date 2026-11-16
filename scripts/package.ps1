@@ -269,6 +269,7 @@ if ($Installer) {
         register_uninstaller = $true
         auto_launch_after_install = $true
         process_conflict_policy = "prompt_user"
+        services = @("NyanQHelperService")
         license_text = $licenseText
         prerequisites = @(
             [ordered]@{

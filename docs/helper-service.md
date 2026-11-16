@@ -65,11 +65,12 @@ TUN 关闭后，可以直接使用系统代理：
 
 ## 卸载 Helper
 
-在管理员终端运行：
+通过 Nyan Setup 安装包卸载 Nyan-Q 时，安装器会停止并删除
+`NyanQHelperService`，并清理其服务注册。便携版或手动安装场景可以在管理员终端运行：
 
 ```powershell
 & "$env:ProgramData\Nyan-Q\nyanq-service.exe" --uninstall
 ```
 
-只卸载 GUI 而保留 Helper 不会影响 GUI 的数据目录；如果不再使用 TUN，建议执行上面的
+只删除 GUI 而保留 Helper 不会影响 GUI 的数据目录；如果不再使用 TUN，建议执行上面的
 命令删除服务和受保护的 Core 副本。

@@ -223,7 +223,7 @@ ctest --test-dir build -C Release --output-on-failure
 
 - 主要面向 Windows；系统代理和 TUN 为 Windows 实现
 - 仅支持 Clash / Mihomo YAML，纯 Base64 节点列表不会自动转换
-- TUN 模式首次启用需要安装常驻 Helper 服务并确认一次 UAC；之后启动应用不会再请求 UAC。Helper 服务卸载方式见 [Helper 服务](docs/helper-service.md)
+- TUN 模式首次启用需要安装常驻 Helper 服务并确认一次 UAC；之后启动应用不会再请求 UAC。覆盖更新或卸载时 Nyan Setup 会停止/恢复或删除该服务，详见 [Helper 服务](docs/helper-service.md)
 - 界面当前仅提供中文
 - 内置语言服务提供语法高亮、语法检查与补全；不提供完整的文档格式化、重命名等 LSP 高级功能
 - 内核版本固定为 `v1.19.33`，升级时更新 `scripts/fetch-deps.ps1` 中的版本与校验和
