@@ -27,6 +27,7 @@
 #include <QCloseEvent>
 #include <QCursor>
 #include <QDir>
+#include <QFile>
 #include <QHBoxLayout>
 #include <QMenu>
 #include <QMouseEvent>
@@ -554,7 +555,8 @@ bool MainWindow::promptForTunAtStartup()
 {
     if (!m_controller || !m_controller->tunEnabled())
         return true;
-    if (nq::service::ServiceClient::waitUntilAvailable(2500))
+    if (QFile::exists(nq::service::tokenPath()) &&
+        nq::service::ServiceClient::waitUntilAvailable(2500))
         return true;
 
     QString error;
@@ -578,7 +580,8 @@ bool MainWindow::requestTunElevationInternal(bool fromStartup)
     }
 
     m_elevationPending = true;
-    if (nq::service::ServiceClient::waitUntilAvailable(1200)) {
+    if (QFile::exists(nq::service::tokenPath()) &&
+        nq::service::ServiceClient::waitUntilAvailable(1200)) {
         m_elevationPending = false;
         if (!fromStartup && m_controller)
             m_controller->setTunEnabled(true);
