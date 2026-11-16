@@ -131,6 +131,7 @@ if (Test-Path $OutDir) { Remove-Item -LiteralPath $OutDir -Recurse -Force }
 New-Item -ItemType Directory -Path $OutDir -Force | Out-Null
 
 Copy-Item $BuildApp (Join-Path $OutDir "Nyan-Q.exe") -Force
+Copy-Item (Join-Path $BuildDir "Release\nyanq-service.exe") $OutDir -Force
 Copy-Item (Join-Path $Root "third_party\mihomo\mihomo.exe") $OutDir -Force
 Copy-Item (Join-Path $Root "third_party\mihomo\wintun.dll") $OutDir -Force
 Copy-Item (Join-Path $Root "README.md") $OutDir -Force

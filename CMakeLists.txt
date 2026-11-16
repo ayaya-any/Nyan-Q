@@ -131,6 +131,8 @@ set(NYANQ_SOURCES
     src/core/NetworkProbe.cpp
     src/core/SystemProxy.cpp
     src/core/ClashController.cpp
+    src/service/ServiceClient.cpp
+    src/service/ServiceInstaller.cpp
 
     src/models/RuleListModel.cpp
     src/models/ConnectionListModel.cpp
@@ -174,6 +176,10 @@ set(NYANQ_SOURCES
 
 file(GLOB_RECURSE NYANQ_HEADERS CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.h")
+# Service runtime headers contain Q_OBJECT implementations built only into
+# nyanq_service; including them in the GUI target would create moc symbols
+# without their definitions.
+list(FILTER NYANQ_HEADERS EXCLUDE REGEX "/src/service/(ServiceRuntime|ServiceServer)\\.h$")
 
 qt_add_executable(NyanQ WIN32 ${NYANQ_SOURCES} ${NYANQ_HEADERS})
 set_target_properties(NyanQ PROPERTIES OUTPUT_NAME "Nyan-Q")
@@ -201,6 +207,34 @@ target_compile_definitions(NyanQ PRIVATE
 
 if(MSVC)
     target_compile_options(NyanQ PRIVATE /utf-8 /W3 /permissive- /Zc:__cplusplus)
+endif()
+
+# Privileged helper. It runs as a Windows service and is the only process that
+# starts Mihomo when TUN is enabled.
+add_executable(nyanq_service
+    src/service/ServiceMain.cpp
+    src/service/ServiceRuntime.cpp
+    src/service/ServiceRuntime.h
+    src/service/ServiceServer.cpp
+    src/service/ServiceServer.h
+    src/service/ServiceClient.cpp
+    src/service/ServiceClient.h
+    src/core/MihomoProcess.cpp
+    src/core/MihomoProcess.h
+)
+set_target_properties(nyanq_service PROPERTIES
+    OUTPUT_NAME "nyanq-service"
+    WIN32_EXECUTABLE FALSE
+)
+target_include_directories(nyanq_service PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
+target_link_libraries(nyanq_service PRIVATE Qt6::Core Qt6::Network advapi32)
+target_compile_definitions(nyanq_service PRIVATE
+    NYANQ_VERSION="${PROJECT_VERSION}"
+    WIN32_LEAN_AND_MEAN
+    NOMINMAX
+)
+if(MSVC)
+    target_compile_options(nyanq_service PRIVATE /utf-8 /W3 /permissive- /Zc:__cplusplus)
 endif()
 
 if(WIN32)
@@ -231,6 +265,7 @@ else()
 endif()
 
 install(TARGETS NyanQ RUNTIME DESTINATION .)
+install(TARGETS nyanq_service RUNTIME DESTINATION .)
 if(EXISTS "${MIHOMO_BINARY}")
     install(FILES "${MIHOMO_BINARY}" DESTINATION .)
 endif()

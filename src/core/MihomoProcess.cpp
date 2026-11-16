@@ -1,7 +1,11 @@
 #include "core/MihomoProcess.h"
 
+#include "service/ServiceClient.h"
+
 #include <QDir>
 #include <QFileInfo>
+#include <QJsonArray>
+#include <QJsonObject>
 #include <QRegularExpression>
 #include <QStringList>
 
@@ -34,6 +38,9 @@ MihomoProcess::MihomoProcess(QObject* parent)
 
     m_process.setProcessChannelMode(QProcess::MergedChannels);
     m_process.setReadChannel(QProcess::StandardOutput);
+
+    m_serviceTimer.setInterval(1000);
+    connect(&m_serviceTimer, &QTimer::timeout, this, &MihomoProcess::pollServiceStatus);
 
     m_killTimer.setSingleShot(true);
     m_killTimer.setInterval(6000);
@@ -116,14 +123,27 @@ void MihomoProcess::setDataDirectory(const QString& path)
     m_dataDirectory = path;
 }
 
+void MihomoProcess::setServiceMode(bool enabled)
+{
+    if (m_serviceMode == enabled)
+        return;
+    if (isRunning())
+        stop();
+    m_serviceMode = enabled;
+    m_serviceRunning = false;
+    m_servicePid = 0;
+    m_serviceError.clear();
+}
+
 qint64 MihomoProcess::processId() const
 {
-    return m_process.processId();
+    return m_serviceMode ? m_servicePid : m_process.processId();
 }
 
 bool MihomoProcess::isRunning() const
 {
-    return m_process.state() != QProcess::NotRunning;
+    return m_serviceMode ? m_serviceRunning
+                         : m_process.state() != QProcess::NotRunning;
 }
 
 void MihomoProcess::start(const QString& configPath, int controllerPort, const QString& secret)
@@ -132,7 +152,7 @@ void MihomoProcess::start(const QString& configPath, int controllerPort, const Q
         emit failed(QStringLiteral("Mihomo 已经在运行"));
         return;
     }
-    if (!QFileInfo::exists(m_program)) {
+    if (!m_serviceMode && !QFileInfo::exists(m_program)) {
         emit failed(QStringLiteral("找不到 Mihomo 可执行文件：%1").arg(m_program));
         return;
     }
@@ -144,6 +164,25 @@ void MihomoProcess::start(const QString& configPath, int controllerPort, const Q
     m_buffer.clear();
     m_stopping = false;
     QDir().mkpath(m_dataDirectory);
+
+    if (m_serviceMode) {
+        m_serviceLogSeq = 0;
+        m_servicePid = 0;
+        m_serviceStatusFailures = 0;
+        m_serviceError.clear();
+        QString error;
+        if (!nq::service::ServiceClient::start(configPath, m_dataDirectory, controllerPort,
+                                               secret, &error)) {
+            m_serviceRunning = false;
+            emit failed(error.isEmpty() ? QStringLiteral("Helper 服务无法启动 Mihomo") : error);
+            return;
+        }
+        m_serviceRunning = true;
+        m_serviceTimer.start();
+        emit started();
+        return;
+    }
+
     m_process.setWorkingDirectory(m_dataDirectory);
     m_process.setProgram(m_program);
     m_process.setArguments({
@@ -165,6 +204,16 @@ void MihomoProcess::stop()
     if (!isRunning())
         return;
     m_stopping = true;
+    if (m_serviceMode) {
+        m_serviceTimer.stop();
+        QString error;
+        if (!nq::service::ServiceClient::stop(&error))
+            emit logLine(QStringLiteral("warning\t%1").arg(error));
+        m_serviceRunning = false;
+        m_servicePid = 0;
+        emit finished(0, false);
+        return;
+    }
 #ifdef Q_OS_WIN
     if (sendCtrlBreak()) {
         emit logLine(QStringLiteral("info\t已请求 Mihomo 优雅退出（CTRL_BREAK_EVENT）"));
@@ -209,6 +258,18 @@ bool MihomoProcess::stopAndWait(int timeoutMs)
         return true;
     m_stopping = true;
     m_killTimer.stop();
+    if (m_serviceMode) {
+        m_serviceTimer.stop();
+        QString error;
+        const bool stopped = nq::service::ServiceClient::stop(&error);
+        if (!stopped) {
+            m_serviceError = error;
+            return false;
+        }
+        m_serviceRunning = false;
+        m_servicePid = 0;
+        return true;
+    }
 #ifdef Q_OS_WIN
     const bool graceful = sendCtrlBreak();
     if (graceful)
@@ -230,6 +291,53 @@ bool MihomoProcess::stopAndWait(int timeoutMs)
         m_process.waitForFinished(1200);
     }
     return !isRunning();
+}
+
+void MihomoProcess::pollServiceStatus()
+{
+    if (!m_serviceMode || m_stopping)
+        return;
+    QString error;
+    const QJsonObject status =
+        nq::service::ServiceClient::status(m_serviceLogSeq, &error);
+    if (status.isEmpty()) {
+        if (!error.isEmpty())
+            m_serviceError = error;
+        if (++m_serviceStatusFailures >= 3) {
+            m_serviceTimer.stop();
+            m_serviceRunning = false;
+            m_servicePid = 0;
+            emit failed(m_serviceError.isEmpty() ? QStringLiteral("Helper 服务无响应")
+                                                  : m_serviceError);
+            emit finished(1, true);
+        }
+        return;
+    }
+    m_serviceStatusFailures = 0;
+
+    const QJsonArray logs = status.value(QStringLiteral("logs")).toArray();
+    for (const QJsonValue& value : logs) {
+        const QString line = value.toString();
+        if (!line.isEmpty())
+            emit logLine(line);
+    }
+    m_serviceLogSeq =
+        static_cast<quint64>(status.value(QStringLiteral("next")).toDouble());
+    m_servicePid =
+        static_cast<qint64>(status.value(QStringLiteral("pid")).toDouble());
+
+    const QString serviceError = status.value(QStringLiteral("error")).toString();
+    if (!serviceError.isEmpty())
+        m_serviceError = serviceError;
+
+    if (!status.value(QStringLiteral("running")).toBool()) {
+        m_serviceTimer.stop();
+        m_serviceRunning = false;
+        m_servicePid = 0;
+        if (!m_serviceError.isEmpty())
+            emit failed(m_serviceError);
+        emit finished(0, false);
+    }
 }
 
 void MihomoProcess::consumeOutput(bool flush)

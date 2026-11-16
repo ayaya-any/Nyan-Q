@@ -1,11 +1,12 @@
 #include "ui/MainWindow.h"
 
 #include "app/AppPaths.h"
-#include "app/Elevation.h"
 #include "app/Fonts.h"
 #include "app/Theme.h"
 #include "core/ClashController.h"
 #include "core/Formatters.h"
+#include "service/ServiceClient.h"
+#include "service/ServiceInstaller.h"
 #include "ui/Sidebar.h"
 #include "ui/TitleBar.h"
 #include "ui/dialogs/MessageDialog.h"
@@ -551,9 +552,19 @@ void MainWindow::requestTunElevation()
 
 bool MainWindow::promptForTunAtStartup()
 {
-    if (!m_controller || m_controller->isElevated() || !m_controller->tunEnabled())
+    if (!m_controller || !m_controller->tunEnabled())
         return true;
-    return requestTunElevationInternal(true);
+    if (nq::service::ServiceClient::isAvailable())
+        return true;
+
+    QString error;
+    if (!nq::service::ServiceInstaller::install(&error)) {
+        m_controller->setTunEnabled(false);
+        reportTunElevationIssue(
+            QStringLiteral("无法安装 Nyan-Q Helper 服务：%1\n\nTUN 模式已关闭。").arg(error),
+            true);
+    }
+    return true;
 }
 
 bool MainWindow::requestTunElevationInternal(bool fromStartup)
@@ -567,44 +578,23 @@ bool MainWindow::requestTunElevationInternal(bool fromStartup)
     }
 
     m_elevationPending = true;
-
-    QStringList arguments{QStringLiteral("--relaunch-elevated"),
-                          QStringLiteral("--enable-tun"),
-                          QStringLiteral("--page"),
-                          QString::number(currentPage()),
-                          QStringLiteral("--data-dir"),
-                          QDir::toNativeSeparators(AppPaths::dataDir())};
-    if (!isVisible() || isMinimized())
-        arguments.append(QStringLiteral("--start-hidden"));
-
     QString error;
-    const Elevation::RelaunchResult result =
-        Elevation::relaunchAsAdministrator(arguments, &error);
-    if (result == Elevation::RelaunchResult::Started) {
-        // The elevated instance waits for this instance's single-instance
-        // lock, then starts the core with TUN enabled.
-        m_forceQuit = true;
-        close();
-        return false;
-    }
-
+    const bool installed = nq::service::ServiceInstaller::install(&error);
     m_elevationPending = false;
-    if (fromStartup && m_controller)
-        m_controller->setTunEnabled(false);
 
-    if (result == Elevation::RelaunchResult::Canceled) {
+    if (!installed) {
+        if (fromStartup && m_controller)
+            m_controller->setTunEnabled(false);
         reportTunElevationIssue(
-            fromStartup ? QStringLiteral("已取消管理员授权，TUN 模式已关闭。")
-                        : QStringLiteral("已取消管理员授权，TUN 模式未开启。"),
-            false);
-    } else {
-        QString message = error.isEmpty()
-                              ? QStringLiteral("无法以管理员身份重新启动 Nyan-Q。")
-                              : error;
-        if (fromStartup)
-            message += QStringLiteral("\n\nTUN 模式已关闭。");
-        reportTunElevationIssue(message, true);
+            fromStartup
+                ? QStringLiteral("无法安装 Nyan-Q Helper 服务：%1\n\nTUN 模式已关闭。").arg(error)
+                : QStringLiteral("无法安装 Nyan-Q Helper 服务：%1\n\nTUN 模式未开启。").arg(error),
+            true);
+        return true;
     }
+
+    if (!fromStartup && m_controller)
+        m_controller->setTunEnabled(true);
     return true;
 }
 

@@ -3,6 +3,7 @@
 #include "app/AppPaths.h"
 #include "core/Formatters.h"
 #include "core/RuntimeConfig.h"
+#include "service/ServiceClient.h"
 
 #include <QCoreApplication>
 #include <QDateTime>
@@ -757,6 +758,9 @@ void ClashController::launchCore(const cq::ProfileMeta& profile, const QString& 
     m_api.setSecret(m_settings.secret);
     m_api.setDelayTestUrl(m_settings.delayTestUrl);
     m_api.stopPolling();
+    const bool serviceMode =
+        m_settings.tunEnabled && !m_demo && nq::service::ServiceClient::isAvailable();
+    m_process.setServiceMode(serviceMode);
     m_process.setProgram(m_coreBinary);
     m_process.setDataDirectory(AppPaths::dataDir());
 
@@ -779,9 +783,9 @@ void ClashController::launchCore(const cq::ProfileMeta& profile, const QString& 
         QStringLiteral("正在启动 Mihomo · 配置「%1」 · 混合端口 %2")
             .arg(profile.name)
             .arg(m_settings.mixedPort));
-    if (m_settings.tunEnabled && !isElevated()) {
+    if (m_settings.tunEnabled && !serviceMode) {
         log(cq::LogLevel::Warning,
-            QStringLiteral("TUN 模式通常需要管理员权限，如果启动失败请以管理员身份运行"));
+            QStringLiteral("TUN 模式需要 Nyan-Q Helper 服务，当前将以普通权限启动内核"));
     }
 
     m_startupTimer.start();
@@ -1077,12 +1081,12 @@ void ClashController::setTunEnabled(bool enabled)
 {
     if (m_settings.tunEnabled == enabled)
         return;
-    if (enabled && !m_demo && !isElevated()) {
+    if (enabled && !m_demo && !nq::service::ServiceClient::isAvailable()) {
         // The switch was already toggled by the user, so resync it with the
-        // stored setting while the UI asks for elevation in a queued slot.
+        // stored setting while the UI asks to install the Helper service.
         emit tunChanged(m_settings.tunEnabled);
         emit tunElevationRequired();
-        log(cq::LogLevel::Warning, QStringLiteral("TUN 模式需要管理员权限，正在请求提权"));
+        log(cq::LogLevel::Warning, QStringLiteral("TUN 模式需要安装 Nyan-Q Helper 服务"));
         return;
     }
     m_settings.tunEnabled = enabled;
@@ -1094,10 +1098,10 @@ void ClashController::setTunEnabled(bool enabled)
     if (m_demo)
         return;
     if (m_state == cq::CoreState::Running || m_state == cq::CoreState::Starting) {
-        emit notification(enabled ? QStringLiteral("正在热应用 TUN 模式…")
+        emit notification(enabled ? QStringLiteral("正在启用 TUN 模式…")
                                   : QStringLiteral("正在关闭 TUN 模式…"),
                           false);
-        scheduleConfigReload();
+        restart();
     }
 }
 
@@ -1146,9 +1150,10 @@ bool ClashController::updateSettings(const cq::AppSettings& settings, bool resta
 
     const cq::AppSettings previous = m_settings;
     bool elevationRequested = false;
-    if (next.tunEnabled && !previous.tunEnabled && !m_demo && !isElevated()) {
-        // Persist the rest of the form, but leave TUN off until the elevated
-        // instance takes over; it re-enables TUN via --enable-tun.
+    if (next.tunEnabled && !previous.tunEnabled && !m_demo &&
+        !nq::service::ServiceClient::isAvailable()) {
+        // Persist the rest of the form, but leave TUN off until the Helper
+        // service is installed by the UI.
         next.tunEnabled = false;
         elevationRequested = true;
     }
@@ -1199,11 +1204,11 @@ bool ClashController::updateSettings(const cq::AppSettings& settings, bool resta
 
     if (!m_demo && (m_state == cq::CoreState::Running ||
                     m_state == cq::CoreState::Starting)) {
-        if (processSettingsChanged) {
+        if (processSettingsChanged || tunChangedValue) {
             if (restartIfNeeded) {
                 restart();
             } else {
-                emit notification(QStringLiteral("控制器或内核路径设置将在下次连接时生效"),
+                emit notification(QStringLiteral("控制器、内核路径或 TUN 设置将在下次连接时生效"),
                                   false);
             }
         } else if (reloadSettingsChanged) {
@@ -1214,7 +1219,7 @@ bool ClashController::updateSettings(const cq::AppSettings& settings, bool resta
     }
     if (elevationRequested) {
         emit tunElevationRequired();
-        log(cq::LogLevel::Warning, QStringLiteral("TUN 模式需要管理员权限，正在请求提权"));
+        log(cq::LogLevel::Warning, QStringLiteral("TUN 模式需要安装 Nyan-Q Helper 服务"));
     }
     return true;
 }

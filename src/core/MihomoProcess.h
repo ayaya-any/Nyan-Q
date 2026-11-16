@@ -15,6 +15,8 @@ public:
 
     void setProgram(const QString& path);
     void setDataDirectory(const QString& path);
+    void setServiceMode(bool enabled);
+    bool serviceMode() const { return m_serviceMode; }
     QString program() const { return m_program; }
     qint64 processId() const;
     bool isRunning() const;
@@ -32,15 +34,23 @@ signals:
 private:
     void consumeOutput(bool flush = false);
     void forwardLine(const QString& line);
+    void pollServiceStatus();
 #ifdef Q_OS_WIN
     bool sendCtrlBreak();
 #endif
 
     QProcess m_process;
     QTimer m_killTimer;
+    QTimer m_serviceTimer;
     QString m_program;
     QString m_dataDirectory;
     QByteArray m_buffer;
     void* m_jobHandle = nullptr;
     bool m_stopping = false;
+    bool m_serviceMode = false;
+    bool m_serviceRunning = false;
+    qint64 m_servicePid = 0;
+    quint64 m_serviceLogSeq = 0;
+    QString m_serviceError;
+    int m_serviceStatusFailures = 0;
 };

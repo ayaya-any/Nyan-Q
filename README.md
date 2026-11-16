@@ -17,6 +17,7 @@ Material 3 风格组件，通过本机 REST API 管理 Mihomo 内核。
 - 规则、全局、直连三种代理模式，支持代理组与节点切换、延迟测速
 - 仪表盘展示实时流量、内存、网络出口、服务延迟、活动连接和当前配置
 - 系统代理、TUN、局域网代理开关
+- TUN 首次启用时安装常驻 Helper 服务，之后无需重启整个应用或重复 UAC
 - 导入 Clash / Mihomo YAML 订阅或本地文件，支持配额、到期时间、自动更新和热重载
 - 全窗口 YAML 编辑器，支持查找替换、未保存保护、配置重命名
 - 内置语言插件为 YAML 与 JavaScript 提供语法高亮、语法检查和代码提示，无外部 LSP 进程
@@ -114,7 +115,7 @@ build\Release\Nyan-Q.exe
 
 1. 打开 **订阅**，导入订阅链接或本地 YAML 文件。
 2. 在 **代理** 页选择代理组和节点。
-3. 在仪表盘或设置页开启系统代理；TUN 模式会请求 UAC 提权并以管理员身份重启。
+3. 在仪表盘或设置页开启系统代理；首次开启 TUN 会安装 Helper 服务，之后无需重启应用。
 4. 在 **配置** 页编辑 YAML，保存后当前配置会自动热重载。
 5. 在 **脚本** 页新建或导入 JavaScript，按需关联订阅。脚本会在独立 QuickJS
    上下文中执行，生成的最终配置先经 `mihomo -t` 校验，通过后才加载到内核。
@@ -127,6 +128,15 @@ build\Release\Nyan-Q.exe
 | ![脚本列表](docs/screenshots/scripts.png) | ![脚本编辑器](docs/screenshots/script-editor.png) | ![脚本测试](docs/screenshots/script-test.png) |
 
 配置名称可直接点击编辑，右侧铅笔按钮用于快速聚焦名称输入框。
+
+## TUN 与 Helper 服务
+
+TUN 需要管理员权限，但 Nyan-Q 不再让 GUI 以管理员身份重启。首次开启 TUN 时只安装一次
+常驻 Windows 服务 `NyanQHelperService`，之后 GUI 通过命名管道让该服务启动带 TUN 的内核。
+关闭 TUN 后内核会切回普通权限运行，服务继续常驻；系统代理仍是当前用户的 Windows
+代理设置，不需要管理员权限。
+
+安装位置、安全边界和卸载命令见 [Helper 服务](docs/helper-service.md)。
 
 ## 快捷键
 
@@ -213,7 +223,7 @@ ctest --test-dir build -C Release --output-on-failure
 
 - 主要面向 Windows；系统代理和 TUN 为 Windows 实现
 - 仅支持 Clash / Mihomo YAML，纯 Base64 节点列表不会自动转换
-- TUN 模式需要管理员权限；开启 TUN 或启动时检测到 TUN 已启用，会请求 UAC 提权并重启应用，取消授权则关闭 TUN
+- TUN 模式首次启用需要安装常驻 Helper 服务并确认一次 UAC；之后启动应用不会再请求 UAC。Helper 服务卸载方式见 [Helper 服务](docs/helper-service.md)
 - 界面当前仅提供中文
 - 内置语言服务提供语法高亮、语法检查与补全；不提供完整的文档格式化、重命名等 LSP 高级功能
 - 内核版本固定为 `v1.19.33`，升级时更新 `scripts/fetch-deps.ps1` 中的版本与校验和
