@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(Nyan-Q VERSION 0.2.0 LANGUAGES C CXX)
+project(Nyan-Q VERSION 0.2.1 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -227,7 +227,7 @@ set_target_properties(nyanq_service PROPERTIES
     WIN32_EXECUTABLE FALSE
 )
 target_include_directories(nyanq_service PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
-target_link_libraries(nyanq_service PRIVATE Qt6::Core Qt6::Network advapi32)
+target_link_libraries(nyanq_service PRIVATE Qt6::Core Qt6::Network advapi32 psapi)
 target_compile_definitions(nyanq_service PRIVATE
     NYANQ_VERSION="${PROJECT_VERSION}"
     WIN32_LEAN_AND_MEAN

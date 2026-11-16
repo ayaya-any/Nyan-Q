@@ -168,6 +168,8 @@ void MihomoProcess::start(const QString& configPath, int controllerPort, const Q
     if (m_serviceMode) {
         m_serviceLogSeq = 0;
         m_servicePid = 0;
+        m_serviceWorkingSet = 0;
+        m_serviceMemoryValid = false;
         m_serviceStatusFailures = 0;
         m_serviceError.clear();
         QString error;
@@ -211,6 +213,8 @@ void MihomoProcess::stop()
             emit logLine(QStringLiteral("warning\t%1").arg(error));
         m_serviceRunning = false;
         m_servicePid = 0;
+        m_serviceWorkingSet = 0;
+        m_serviceMemoryValid = false;
         emit finished(0, false);
         return;
     }
@@ -268,6 +272,8 @@ bool MihomoProcess::stopAndWait(int timeoutMs)
         }
         m_serviceRunning = false;
         m_servicePid = 0;
+        m_serviceWorkingSet = 0;
+        m_serviceMemoryValid = false;
         return true;
     }
 #ifdef Q_OS_WIN
@@ -325,6 +331,9 @@ void MihomoProcess::pollServiceStatus()
         static_cast<quint64>(status.value(QStringLiteral("next")).toDouble());
     m_servicePid =
         static_cast<qint64>(status.value(QStringLiteral("pid")).toDouble());
+    m_serviceWorkingSet =
+        static_cast<qint64>(status.value(QStringLiteral("memory")).toDouble());
+    m_serviceMemoryValid = status.value(QStringLiteral("memoryValid")).toBool();
 
     const QString serviceError = status.value(QStringLiteral("error")).toString();
     if (!serviceError.isEmpty())
@@ -334,6 +343,8 @@ void MihomoProcess::pollServiceStatus()
         m_serviceTimer.stop();
         m_serviceRunning = false;
         m_servicePid = 0;
+        m_serviceWorkingSet = 0;
+        m_serviceMemoryValid = false;
         if (!m_serviceError.isEmpty())
             emit failed(m_serviceError);
         emit finished(0, false);

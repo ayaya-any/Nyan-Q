@@ -17,6 +17,8 @@ public:
     void setDataDirectory(const QString& path);
     void setServiceMode(bool enabled);
     bool serviceMode() const { return m_serviceMode; }
+    qint64 workingSetBytes() const { return m_serviceWorkingSet; }
+    bool workingSetValid() const { return m_serviceMemoryValid; }
     QString program() const { return m_program; }
     qint64 processId() const;
     bool isRunning() const;
@@ -51,6 +53,8 @@ private:
     bool m_serviceRunning = false;
     qint64 m_servicePid = 0;
     quint64 m_serviceLogSeq = 0;
+    qint64 m_serviceWorkingSet = 0;
+    bool m_serviceMemoryValid = false;
     QString m_serviceError;
     int m_serviceStatusFailures = 0;
 };

@@ -7,6 +7,11 @@
 #include <QFileInfo>
 #include <QJsonArray>
 
+#ifdef Q_OS_WIN
+#include <windows.h>
+#include <psapi.h>
+#endif
+
 namespace nq::service {
 
 ServiceRuntime::ServiceRuntime(QObject* parent)
@@ -87,6 +92,28 @@ QJsonObject ServiceRuntime::status(quint64 since) const
     result.insert(QStringLiteral("running"), m_process.isRunning());
     result.insert(QStringLiteral("pid"), static_cast<double>(m_process.processId()));
     result.insert(QStringLiteral("error"), m_error);
+
+    qint64 workingSet = 0;
+    bool memoryValid = false;
+#ifdef Q_OS_WIN
+    const qint64 pid = m_process.processId();
+    if (pid > 0) {
+        HANDLE process = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE,
+                                     static_cast<DWORD>(pid));
+        if (process) {
+            PROCESS_MEMORY_COUNTERS_EX counters = {};
+            if (GetProcessMemoryInfo(process,
+                                     reinterpret_cast<PROCESS_MEMORY_COUNTERS*>(&counters),
+                                     sizeof(counters))) {
+                workingSet = static_cast<qint64>(counters.WorkingSetSize);
+                memoryValid = true;
+            }
+            CloseHandle(process);
+        }
+    }
+#endif
+    result.insert(QStringLiteral("memory"), static_cast<double>(workingSet));
+    result.insert(QStringLiteral("memoryValid"), memoryValid);
 
     const quint64 begin = since < m_logBase ? 0 : since - m_logBase;
     QJsonArray logs;

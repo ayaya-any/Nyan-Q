@@ -1712,13 +1712,18 @@ void ClashController::updateMemoryUsage()
     };
 
     usage.appValid = readWorkingSet(GetCurrentProcess(), &usage.appWorkingSet);
-    const qint64 kernelPid = m_process.processId();
-    if (kernelPid > 0) {
-        HANDLE process = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE,
-                                     static_cast<DWORD>(kernelPid));
-        if (process) {
-            usage.kernelValid = readWorkingSet(process, &usage.kernelWorkingSet);
-            CloseHandle(process);
+    if (m_process.serviceMode()) {
+        usage.kernelWorkingSet = m_process.workingSetBytes();
+        usage.kernelValid = m_process.workingSetValid();
+    } else {
+        const qint64 kernelPid = m_process.processId();
+        if (kernelPid > 0) {
+            HANDLE process = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE,
+                                         static_cast<DWORD>(kernelPid));
+            if (process) {
+                usage.kernelValid = readWorkingSet(process, &usage.kernelWorkingSet);
+                CloseHandle(process);
+            }
         }
     }
 #endif
