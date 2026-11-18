@@ -821,6 +821,8 @@ void ClashController::restart()
 
 void ClashController::requestStop(bool restartAfter)
 {
+    const cq::CoreState previousState = m_state;
+    const bool previousSystemProxy = m_systemProxyEnabled;
     m_restartPending = restartAfter;
     m_pendingSystemProxy = false;
     if (!restartAfter)
@@ -846,6 +848,25 @@ void ClashController::requestStop(bool restartAfter)
         }
         log(cq::LogLevel::Info, QStringLiteral("正在停止 Mihomo 核心…"));
         m_process.stop();
+        if (m_process.serviceMode() && m_process.isRunning()) {
+            // No acknowledgement: keep the current session usable while its
+            // Helper reconnects, rather than leaving the UI stuck at Stopping.
+            m_restartPending = false;
+            m_restoreSystemProxyAfterRestart = false;
+            m_state = previousState == cq::CoreState::Stopping ? cq::CoreState::Running : previousState;
+            emit stateChanged(m_state);
+            if (m_state == cq::CoreState::Running) {
+                m_api.startPolling();
+                m_statsTimer.start();
+                syncSystemProxy(previousSystemProxy);
+            } else if (m_state == cq::CoreState::Starting) {
+                m_probeTimer.start();
+                m_startupTimer.start();
+            }
+            const QString message = QStringLiteral("停止内核未获 Helper 确认，已恢复状态监测，请稍后重试");
+            log(cq::LogLevel::Warning, message);
+            emit notification(message, true);
+        }
         return;
     }
 
@@ -1893,8 +1914,10 @@ void ClashController::shutdown()
             m_systemProxy.disable();
         m_systemProxyEnabled = false;
         if (m_process.isRunning()) {
-            m_process.stopAndWait(4000);
-            log(cq::LogLevel::Info, QStringLiteral("Mihomo 核心已退出"));
+            if (m_process.stopAndWait(4000))
+                log(cq::LogLevel::Info, QStringLiteral("Mihomo 核心已退出"));
+            else
+                log(cq::LogLevel::Warning, QStringLiteral("停止 Mihomo 未获确认，无法确认内核已退出"));
         }
     }
 }

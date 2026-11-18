@@ -1,10 +1,14 @@
 #pragma once
 
 #include <QByteArray>
+#include <QElapsedTimer>
+#include <QNetworkAccessManager>
 #include <QObject>
 #include <QProcess>
 #include <QString>
 #include <QTimer>
+
+class QNetworkReply;
 
 class MihomoProcess final : public QObject {
     Q_OBJECT
@@ -37,6 +41,12 @@ private:
     void consumeOutput(bool flush = false);
     void forwardLine(const QString& line);
     void pollServiceStatus();
+    void verifyServiceKernel();
+    void cancelServiceProbe();
+    void closeServiceProcessHandle();
+    enum class ServiceProcessState { Running, Exited, Unknown };
+    ServiceProcessState serviceProcessState(QString* detail);
+    void finishServiceProcess(bool confirmedCrash, const QString& reason);
 #ifdef Q_OS_WIN
     bool sendCtrlBreak();
 #endif
@@ -57,4 +67,12 @@ private:
     bool m_serviceMemoryValid = false;
     QString m_serviceError;
     int m_serviceStatusFailures = 0;
+    bool m_helperReportedStopped = false;
+    int m_serviceControllerPort = 0;
+    QString m_serviceSecret;
+    QNetworkAccessManager m_serviceNetwork;
+    QNetworkReply* m_serviceProbe = nullptr;
+    void* m_serviceProcessHandle = nullptr;
+    QElapsedTimer m_serviceWarningTimer;
+    QElapsedTimer m_serviceVerificationLogTimer;
 };

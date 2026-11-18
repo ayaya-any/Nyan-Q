@@ -5,7 +5,11 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QJsonArray>
+#include <QJsonDocument>
 #include <QJsonObject>
+#include <QNetworkProxy>
+#include <QNetworkReply>
+#include <QNetworkRequest>
 #include <QRegularExpression>
 #include <QStringList>
 
@@ -40,6 +44,7 @@ MihomoProcess::MihomoProcess(QObject* parent)
     m_process.setReadChannel(QProcess::StandardOutput);
 
     m_serviceTimer.setInterval(1000);
+    m_serviceNetwork.setProxy(QNetworkProxy::NoProxy);
     connect(&m_serviceTimer, &QTimer::timeout, this, &MihomoProcess::pollServiceStatus);
 
     m_killTimer.setSingleShot(true);
@@ -105,6 +110,8 @@ MihomoProcess::MihomoProcess(QObject* parent)
 
 MihomoProcess::~MihomoProcess()
 {
+    cancelServiceProbe();
+    closeServiceProcessHandle();
 #ifdef Q_OS_WIN
     if (m_jobHandle) {
         CloseHandle(static_cast<HANDLE>(m_jobHandle));
@@ -129,6 +136,10 @@ void MihomoProcess::setServiceMode(bool enabled)
         return;
     if (isRunning())
         stop();
+    if (isRunning())
+        return;
+    cancelServiceProbe();
+    closeServiceProcessHandle();
     m_serviceMode = enabled;
     m_serviceRunning = false;
     m_servicePid = 0;
@@ -166,11 +177,19 @@ void MihomoProcess::start(const QString& configPath, int controllerPort, const Q
     QDir().mkpath(m_dataDirectory);
 
     if (m_serviceMode) {
+        cancelServiceProbe();
+        closeServiceProcessHandle();
         m_serviceLogSeq = 0;
         m_servicePid = 0;
         m_serviceWorkingSet = 0;
         m_serviceMemoryValid = false;
         m_serviceStatusFailures = 0;
+        m_helperReportedStopped = false;
+        m_serviceControllerPort = controllerPort;
+        m_serviceSecret = secret;
+        m_serviceWarningTimer.invalidate();
+        m_serviceVerificationLogTimer.invalidate();
+        m_serviceTimer.setInterval(1000);
         m_serviceError.clear();
         QString error;
         if (!nq::service::ServiceClient::start(configPath, m_dataDirectory, controllerPort,
@@ -208,9 +227,15 @@ void MihomoProcess::stop()
     m_stopping = true;
     if (m_serviceMode) {
         m_serviceTimer.stop();
+        cancelServiceProbe();
         QString error;
-        if (!nq::service::ServiceClient::stop(&error))
+        if (!nq::service::ServiceClient::stop(&error)) {
             emit logLine(QStringLiteral("warning\t%1").arg(error));
+            m_stopping = false;
+            m_serviceTimer.start();
+            return;
+        }
+        closeServiceProcessHandle();
         m_serviceRunning = false;
         m_servicePid = 0;
         m_serviceWorkingSet = 0;
@@ -264,12 +289,16 @@ bool MihomoProcess::stopAndWait(int timeoutMs)
     m_killTimer.stop();
     if (m_serviceMode) {
         m_serviceTimer.stop();
+        cancelServiceProbe();
         QString error;
         const bool stopped = nq::service::ServiceClient::stop(&error);
         if (!stopped) {
-            m_serviceError = error;
+            emit logLine(QStringLiteral("warning\t停止内核未获确认，将继续核验状态：%1").arg(error));
+            m_stopping = false;
+            m_serviceTimer.start();
             return false;
         }
+        closeServiceProcessHandle();
         m_serviceRunning = false;
         m_servicePid = 0;
         m_serviceWorkingSet = 0;
@@ -301,25 +330,41 @@ bool MihomoProcess::stopAndWait(int timeoutMs)
 
 void MihomoProcess::pollServiceStatus()
 {
-    if (!m_serviceMode || m_stopping)
+    if (!m_serviceMode || !m_serviceRunning || m_stopping)
         return;
     QString error;
-    const QJsonObject status =
+    QJsonObject status =
         nq::service::ServiceClient::status(m_serviceLogSeq, &error);
+    if (!status.isEmpty() &&
+        (!status.value(QStringLiteral("running")).isBool() ||
+         status.value(QStringLiteral("protocol")).toInt() != nq::service::kProtocolVersion)) {
+        error = QStringLiteral("Helper 状态响应无效（command=status stage=validate，缺少运行状态或协议不匹配）");
+        status = {};
+    }
     if (status.isEmpty()) {
-        if (!error.isEmpty())
-            m_serviceError = error;
-        if (++m_serviceStatusFailures >= 3) {
-            m_serviceTimer.stop();
-            m_serviceRunning = false;
-            m_servicePid = 0;
-            emit failed(m_serviceError.isEmpty() ? QStringLiteral("Helper 服务无响应")
-                                                  : m_serviceError);
-            emit finished(1, true);
+        m_helperReportedStopped = false;
+        m_serviceStatusFailures = qMin(m_serviceStatusFailures + 1, 1000000);
+        m_serviceMemoryValid = false;
+        m_serviceTimer.setInterval(qMin(5000, 1000 * (1 + qMin(m_serviceStatusFailures, 4))));
+        if (!m_serviceWarningTimer.isValid() || m_serviceWarningTimer.elapsed() >= 15000) {
+            emit logLine(QStringLiteral("level=warning Helper 通信暂时中断，正在自动重连并核验内核"
+                                       "（连续失败 %1 次，下次重连 %2 ms）：%3")
+                             .arg(m_serviceStatusFailures).arg(m_serviceTimer.interval()).arg(error));
+            m_serviceWarningTimer.restart();
         }
+        verifyServiceKernel();
         return;
     }
+    if (status.value(QStringLiteral("running")).toBool())
+        cancelServiceProbe();
+    if (m_serviceStatusFailures > 0) {
+        emit logLine(QStringLiteral("level=info Helper 通信已恢复（此前连续失败 %1 次）")
+                         .arg(m_serviceStatusFailures));
+    }
     m_serviceStatusFailures = 0;
+    m_serviceTimer.setInterval(1000);
+    m_serviceWarningTimer.invalidate();
+    m_helperReportedStopped = !status.value(QStringLiteral("running")).toBool();
 
     const QJsonArray logs = status.value(QStringLiteral("logs")).toArray();
     for (const QJsonValue& value : logs) {
@@ -329,26 +374,132 @@ void MihomoProcess::pollServiceStatus()
     }
     m_serviceLogSeq =
         static_cast<quint64>(status.value(QStringLiteral("next")).toDouble());
-    m_servicePid =
-        static_cast<qint64>(status.value(QStringLiteral("pid")).toDouble());
+    const qint64 pid = static_cast<qint64>(status.value(QStringLiteral("pid")).toDouble());
+    if (pid > 0 && pid != m_servicePid) {
+        closeServiceProcessHandle();
+        m_servicePid = pid;
+    }
+    if (m_servicePid > 0) {
+        QString processDetail;
+        serviceProcessState(&processDetail); // Retain the handle before any PID reuse.
+    }
     m_serviceWorkingSet =
         static_cast<qint64>(status.value(QStringLiteral("memory")).toDouble());
     m_serviceMemoryValid = status.value(QStringLiteral("memoryValid")).toBool();
 
     const QString serviceError = status.value(QStringLiteral("error")).toString();
-    if (!serviceError.isEmpty())
-        m_serviceError = serviceError;
+    m_serviceError = serviceError;
 
-    if (!status.value(QStringLiteral("running")).toBool()) {
-        m_serviceTimer.stop();
-        m_serviceRunning = false;
-        m_servicePid = 0;
-        m_serviceWorkingSet = 0;
-        m_serviceMemoryValid = false;
-        if (!m_serviceError.isEmpty())
-            emit failed(m_serviceError);
-        emit finished(0, false);
+    if (m_helperReportedStopped) {
+        verifyServiceKernel();
+    } else {
+        m_serviceVerificationLogTimer.invalidate();
     }
+}
+
+void MihomoProcess::cancelServiceProbe()
+{
+    if (!m_serviceProbe)
+        return;
+    auto* reply = m_serviceProbe;
+    m_serviceProbe = nullptr;
+    disconnect(reply, nullptr, this, nullptr);
+    reply->abort();
+    reply->deleteLater();
+}
+
+void MihomoProcess::closeServiceProcessHandle()
+{
+#ifdef Q_OS_WIN
+    if (m_serviceProcessHandle)
+        CloseHandle(static_cast<HANDLE>(m_serviceProcessHandle));
+#endif
+    m_serviceProcessHandle = nullptr;
+}
+
+MihomoProcess::ServiceProcessState MihomoProcess::serviceProcessState(QString* detail)
+{
+#ifdef Q_OS_WIN
+    if (m_servicePid > 0) {
+        if (!m_serviceProcessHandle) {
+            m_serviceProcessHandle = OpenProcess(SYNCHRONIZE, FALSE,
+                                                static_cast<DWORD>(m_servicePid));
+            if (!m_serviceProcessHandle) {
+                const DWORD code = GetLastError();
+                *detail = QStringLiteral("pid=%1 OpenProcess error=%2").arg(m_servicePid).arg(code);
+                // Access denied is unknown, never evidence of process exit.
+                return code == ERROR_INVALID_PARAMETER ? ServiceProcessState::Exited
+                                                       : ServiceProcessState::Unknown;
+            }
+        }
+        const DWORD state = WaitForSingleObject(static_cast<HANDLE>(m_serviceProcessHandle), 0);
+        *detail = QStringLiteral("pid=%1 wait=%2").arg(m_servicePid).arg(state);
+        if (state == WAIT_OBJECT_0)
+            return ServiceProcessState::Exited;
+        if (state == WAIT_TIMEOUT)
+            return ServiceProcessState::Running;
+        *detail += QStringLiteral(" error=%1").arg(GetLastError());
+        return ServiceProcessState::Unknown;
+    }
+#endif
+    *detail = QStringLiteral("pid=%1，进程状态未知").arg(m_servicePid);
+    return ServiceProcessState::Unknown;
+}
+
+void MihomoProcess::verifyServiceKernel()
+{
+    if (m_serviceProbe || !m_serviceRunning || m_stopping)
+        return;
+    QNetworkRequest request(QUrl(QStringLiteral("http://127.0.0.1:%1/version")
+                                    .arg(m_serviceControllerPort)));
+    request.setRawHeader("Authorization", QStringLiteral("Bearer %1").arg(m_serviceSecret).toUtf8());
+    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::ManualRedirectPolicy);
+    request.setTransferTimeout(1500);
+    auto* reply = m_serviceNetwork.get(request);
+    m_serviceProbe = reply;
+    connect(reply, &QNetworkReply::finished, this, [this, reply] {
+        if (m_serviceProbe != reply)
+            return;
+        m_serviceProbe = nullptr;
+        const int httpStatus = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        const auto object = QJsonDocument::fromJson(reply->isOpen() ? reply->readAll() : QByteArray{}).object();
+        const bool controllerAlive = reply->error() == QNetworkReply::NoError && httpStatus == 200 &&
+                                    !object.value(QStringLiteral("version")).toString().isEmpty();
+        const QString controllerDetail = QStringLiteral("controller=%1 http=%2 networkError=%3 detail=%4")
+            .arg(controllerAlive ? QStringLiteral("alive") : QStringLiteral("unavailable"))
+            .arg(httpStatus).arg(static_cast<int>(reply->error())).arg(reply->errorString());
+        reply->deleteLater();
+        QString processDetail;
+        const ServiceProcessState state = serviceProcessState(&processDetail);
+        const QString evidence = controllerDetail + QStringLiteral("; ") + processDetail;
+        if (!controllerAlive &&
+            (state == ServiceProcessState::Exited ||
+             (m_helperReportedStopped && state != ServiceProcessState::Running))) {
+            finishServiceProcess(!m_helperReportedStopped,
+                QStringLiteral("已核验 Mihomo 核心退出：%1").arg(evidence));
+            return;
+        }
+        if (!m_serviceVerificationLogTimer.isValid() || m_serviceVerificationLogTimer.elapsed() >= 15000) {
+            emit logLine(QStringLiteral("level=warning 内核状态核验：%1；保留运行状态并继续重连 Helper")
+                             .arg(evidence));
+            m_serviceVerificationLogTimer.restart();
+        }
+    });
+}
+
+void MihomoProcess::finishServiceProcess(bool confirmedCrash, const QString& reason)
+{
+    m_serviceTimer.stop();
+    cancelServiceProbe();
+    closeServiceProcessHandle();
+    m_serviceRunning = false;
+    m_servicePid = 0;
+    m_serviceWorkingSet = 0;
+    m_serviceMemoryValid = false;
+    emit logLine(QStringLiteral("level=warning %1").arg(reason));
+    if (confirmedCrash || !m_serviceError.isEmpty())
+        emit failed(m_serviceError.isEmpty() ? reason : m_serviceError);
+    emit finished(confirmedCrash ? 1 : 0, confirmedCrash);
 }
 
 void MihomoProcess::consumeOutput(bool flush)

@@ -22,6 +22,18 @@ function(nyanq_add_test name)
     endif()
 endfunction()
 
+nyanq_add_test(test_service_recovery
+    SOURCES
+        test_service_recovery.cpp
+        http_test_server.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/service/ServiceClient.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/core/MihomoProcess.cpp
+)
+target_compile_definitions(test_service_recovery PRIVATE
+    NYANQ_VERSION="${PROJECT_VERSION}"
+    NYANQ_SERVICE_TEST_PIPE="nyanq-service-recovery-tests"
+)
+
 nyanq_add_test(test_runtime_config
     SOURCES
         test_runtime_config.cpp
