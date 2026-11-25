@@ -692,10 +692,14 @@ void ClashController::start()
     }
 
     QString configError;
-    if (!RuntimeConfig::write(sourcePath, m_activeConfigPath, m_settings, &configError)) {
+    QStringList configWarnings;
+    if (!RuntimeConfig::write(sourcePath, m_activeConfigPath, m_settings, &configError,
+                              &configWarnings)) {
         failStartup(configError);
         return;
     }
+    for (const QString& warning : configWarnings)
+        log(cq::LogLevel::Info, warning);
 
     launchCore(*active, m_activeConfigPath);
 }
@@ -1491,8 +1495,11 @@ bool ClashController::prepareRuntimeConfig(QString* error)
     }
 
     const QString runtime = AppPaths::runtimeConfigFile();
-    if (!RuntimeConfig::write(source, runtime, m_settings, error))
+    QStringList warnings;
+    if (!RuntimeConfig::write(source, runtime, m_settings, error, &warnings))
         return false;
+    for (const QString& warning : warnings)
+        log(cq::LogLevel::Info, warning);
     m_activeConfigPath = runtime;
     return true;
 }
@@ -1585,6 +1592,11 @@ void ClashController::handleComposerFinished(const nq::scripts::ConfigComposer::
     if (m_shuttingDown)
         return;
 
+    const auto logPipelineWarnings = [this](const nq::scripts::ScriptPipelineResult& pipeline) {
+        for (const QString& warning : pipeline.warnings)
+            log(cq::LogLevel::Info, warning);
+    };
+
     if (!m_startRequestId.isEmpty() && result.requestId == m_startRequestId) {
         m_startRequestId.clear();
         m_scriptStartPending = false;
@@ -1598,6 +1610,7 @@ void ClashController::handleComposerFinished(const nq::scripts::ConfigComposer::
             return;
         }
         if (!result.ok) {
+            logPipelineWarnings(result.pipeline);
             m_scripts.recordPipelineResult(result.pipeline, result.profileName);
             if (!result.pipeline.failingScriptId.isEmpty())
                 m_scripts.handlePipelineFailure(result.pipeline);
@@ -1610,6 +1623,7 @@ void ClashController::handleComposerFinished(const nq::scripts::ConfigComposer::
             return;
         }
         m_scripts.recordPipelineResult(result.pipeline, result.profileName);
+        logPipelineWarnings(result.pipeline);
         m_scriptStartProfileId.clear();
         m_scriptStartProfileName.clear();
         launchCore(*profile, result.outputPath);
@@ -1620,6 +1634,7 @@ void ClashController::handleComposerFinished(const nq::scripts::ConfigComposer::
         m_reloadRequestId.clear();
         m_configReloadInFlight = false;
         m_scripts.recordPipelineResult(result.pipeline, result.profileName);
+        logPipelineWarnings(result.pipeline);
         if (m_state != cq::CoreState::Running) {
             m_configReloadQueued = false;
             return;

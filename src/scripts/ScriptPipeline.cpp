@@ -180,6 +180,13 @@ ScriptPipelineResult ScriptPipeline::process(const Request& request,
         return result;
     };
 
+    auto addBuildWarnings = [&result](const QStringList& warnings) {
+        for (const QString& warning : warnings) {
+            if (!result.warnings.contains(warning))
+                result.warnings.append(warning);
+        }
+    };
+
     if (control && control->cancelRequested.load(std::memory_order_relaxed)) {
         result.canceled = true;
         result.error = QStringLiteral("脚本执行已取消");
@@ -187,8 +194,17 @@ ScriptPipelineResult ScriptPipeline::process(const Request& request,
     }
 
     QString baseline = request.rawYaml;
-    if (request.applyClientSettings)
-        baseline = RuntimeConfig::build(request.rawYaml, request.settings);
+    if (request.applyClientSettings) {
+        QString buildError;
+        QStringList buildWarnings;
+        baseline = RuntimeConfig::build(request.rawYaml, request.settings,
+                                        &buildError, &buildWarnings);
+        addBuildWarnings(buildWarnings);
+        if (!buildError.isEmpty()) {
+            result.error = buildError;
+            return finish();
+        }
+    }
     result.baselineYaml = baseline;
 
     nq::yaml::Document document;
@@ -321,8 +337,17 @@ ScriptPipelineResult ScriptPipeline::process(const Request& request,
     }
 
     QString finalYaml = QString::fromUtf8(serialized);
-    if (request.applyClientSettings)
-        finalYaml = RuntimeConfig::build(finalYaml, request.settings);
+    if (request.applyClientSettings) {
+        QString buildError;
+        QStringList buildWarnings;
+        finalYaml = RuntimeConfig::build(finalYaml, request.settings, &buildError,
+                                         &buildWarnings);
+        addBuildWarnings(buildWarnings);
+        if (!buildError.isEmpty()) {
+            result.error = buildError;
+            return finish();
+        }
+    }
     if (finalYaml.toUtf8().size() > 64LL * 1024 * 1024) {
         result.ok = false;
         result.error = QStringLiteral("最终配置超过 64 MB 限制");

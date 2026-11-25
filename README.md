@@ -16,7 +16,8 @@ Material 3 风格组件，通过本机 REST API 管理 Mihomo 内核。
 - Mihomo 随应用启动和退出，设置页提供重启入口
 - 规则、全局、直连三种代理模式，支持代理组与节点切换、延迟测速
 - 仪表盘展示实时流量、内存、网络出口、服务延迟、活动连接和当前配置
-- 系统代理、TUN、局域网代理开关
+- 系统代理、TUN、局域网代理开关；TUN 支持保留订阅/脚本中的 `stack`、`mtu`、
+  `strict-route`、`route-exclude-address` 等设置
 - TUN 首次启用时安装常驻 Helper 服务，之后无需重启整个应用或重复 UAC
 - 导入 Clash / Mihomo YAML 订阅或本地文件，支持配额、到期时间、自动更新和热重载
 - 全窗口 YAML 编辑器，支持查找替换、未保存保护、配置重命名
@@ -79,7 +80,7 @@ build\Release\Nyan-Q.exe
 输出：
 
 - `dist\Nyan-Q\`
-- `dist\Nyan-Q-0.2.2-win64.zip`
+- `dist\Nyan-Q-0.2.3-win64.zip`
 
 制作简体中文安装包：
 
@@ -89,7 +90,7 @@ build\Release\Nyan-Q.exe
 
 输出：
 
-- `dist\Nyan-Q-0.2.2-win64-setup.exe`
+- `dist\Nyan-Q-0.2.3-win64-setup.exe`
 - 默认安装到 `%LOCALAPPDATA%\Programs\Nyan-Q`
 - 安装前检测并安装所需的 MSVC x64 运行库
 - 卸载默认保留 `%LOCALAPPDATA%\Nyan-Q` 中的配置和订阅
@@ -97,7 +98,7 @@ build\Release\Nyan-Q.exe
 安装包由 `nyan-setup.exe pack` 生成，可用以下命令无界面校验归档完整性：
 
 ```powershell
-.\dist\Nyan-Q-0.2.2-win64-setup.exe --extract-to .\build\installer-verify
+.\dist\Nyan-Q-0.2.3-win64-setup.exe --extract-to .\build\installer-verify
 ```
 
 ### 发布
@@ -138,9 +139,17 @@ TUN 需要管理员权限，但 Nyan-Q 不再让 GUI 以管理员身份重启。
 
 Helper 短暂失联时，Nyan-Q 会自动重连并核验内核状态。若故障持续，请查看应用内的
 **日志**页，或按 [Helper 通信故障排查](docs/helper-service.md#通信故障与恢复) 查找日志文件。
-从旧版升级到 0.2.2 后，首次启用 TUN 时可能需要确认一次 UAC 以更新 Helper，详见
-[0.2.2 升级说明](docs/release-notes/v0.2.2.md#升级说明)。安装位置、安全边界和卸载命令见
+从旧版升级到 0.2.3 后，首次启用 TUN 时可能需要确认一次 UAC 以更新 Helper，详见
+[0.2.3 升级说明](docs/release-notes/v0.2.3.md#升级说明)。安装位置、安全边界和卸载命令见
 [Helper 服务](docs/helper-service.md)。
+
+TUN 设置会合并保留订阅或脚本里的 `tun` 字段：`stack`、`mtu`、`strict-route`、
+`route-address`、`route-exclude-address`、`dns-hijack` 扩展、`udp-timeout` 等；`enable`、
+`auto-route`、`auto-detect-interface` 和 DNS 劫持的基础项仍由 Nyan-Q 托管。排除地址只接受
+IP/CIDR（`inet4/inet6-route-exclude-address` 旧写法会自动合并），无效条目会在启动前报错。
+注意：如果订阅没有自带 `dns`，Nyan-Q 会注入 fake-ip，域名解析结果是 `198.18.x.x`，
+`route-exclude-address` 只对应用直接连接 IP 的场景生效；域名流量仍经过 TUN，建议用
+`DIRECT` 规则绕过代理。
 
 ## 快捷键
 
@@ -228,13 +237,15 @@ ctest --test-dir build -C Release --output-on-failure
 - 主要面向 Windows；系统代理和 TUN 为 Windows 实现
 - 仅支持 Clash / Mihomo YAML，纯 Base64 节点列表不会自动转换
 - TUN 模式首次启用需要安装常驻 Helper 服务并确认一次 UAC；之后启动应用不会再请求 UAC。覆盖更新或卸载时 Nyan Setup 会停止/恢复或删除该服务，详见 [Helper 服务](docs/helper-service.md)
+- TUN 的 `route-exclude-address` 只支持 IP/CIDR；域名流量仍会经过 TUN，需要按域名绕过代理时请使用 `DIRECT` 规则
 - 界面当前仅提供中文
 - 内置语言服务提供语法高亮、语法检查与补全；不提供完整的文档格式化、重命名等 LSP 高级功能
 - 内核版本固定为 `v1.19.33`，升级时更新 `scripts/fetch-deps.ps1` 中的版本与校验和
 - JavaScript 覆写会在脚本生效时重新序列化 YAML，原订阅中的注释和自定义排版不会保留；
   字段、值、顺序和未知扩展键会保留
-- 顶层网络/控制面字段（混合端口、控制器、secret、TUN 等）始终由 Nyan-Q 在脚本之后
-  重新应用，脚本对这些字段的修改会被覆盖
+- 顶层网络/控制面字段（混合端口、控制器、secret、TUN 的 `enable`/`auto-route`/
+  `auto-detect-interface`/DNS 劫持基础项等）始终由 Nyan-Q 在脚本之后重新应用；TUN 的其余
+  可调项会合并保留
 - QuickJS 在进程内线程中运行，属于引擎级能力隔离，不是操作系统沙箱；只应导入可信脚本
 
 ## 第三方

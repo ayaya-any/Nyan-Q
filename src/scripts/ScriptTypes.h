@@ -5,6 +5,7 @@
 #include <QDateTime>
 #include <QMetaType>
 #include <QString>
+#include <QStringList>
 #include <QVector>
 
 namespace nq::scripts {
@@ -155,6 +156,7 @@ struct ScriptPipelineResult {
     bool usedScripts = false;
     bool partial = false;
     QString error;
+    QStringList warnings;
     QString profileId;
     QString profileName;
     QString originalYaml;

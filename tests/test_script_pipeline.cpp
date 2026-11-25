@@ -60,6 +60,8 @@ private slots:
     void runsAsynchronously();
     void finalStructureIsValidated();
     void reportsIntegrityErrorBeforeExecution();
+    void preservesTunRouteExcludesFromScript();
+    void rejectsInvalidTunRouteExcludesFromScript();
 };
 
 void ScriptPipelineTest::executesScriptsInOrder()
@@ -203,6 +205,56 @@ void ScriptPipelineTest::reportsIntegrityErrorBeforeExecution()
     QVERIFY(!result.ok);
     QVERIFY(result.error.contains(QStringLiteral("哈希不匹配")));
     QCOMPARE(result.steps.size(), 1);
+}
+
+void ScriptPipelineTest::preservesTunRouteExcludesFromScript()
+{
+    const QString script = QStringLiteral(R"JS(function main(config) {
+    config.tun = config.tun || {};
+    config.tun.stack = "gvisor";
+    config.tun["route-exclude-address"] = [
+        "175.45.34.88/32",
+        "222.73.105.170/32"
+    ];
+    return config;
+})JS");
+    ScriptPipeline::Request request =
+        requestFor({step(QStringLiteral("s1"), QStringLiteral("TUN 设置"), script)});
+    request.settings.tunEnabled = true;
+    const ScriptPipelineResult result = ScriptPipeline::process(request, nullptr);
+    QVERIFY2(result.ok, qPrintable(result.error));
+    QVERIFY2(result.warnings.join(QLatin1Char('\n')).contains(QStringLiteral("TUN 排除")),
+             qPrintable(result.warnings.join(QLatin1Char('\n'))));
+
+    nq::yaml::Document document;
+    QVERIFY2(document.parse(result.finalYaml.toUtf8()),
+             qPrintable(document.error.toString()));
+    const nq::yaml::Node* tun = document.root.find(QStringLiteral("tun"));
+    QVERIFY(tun);
+    QCOMPARE(tun->find(QStringLiteral("stack"))->value, QStringLiteral("gvisor"));
+    const nq::yaml::Node* excludes = tun->find(QStringLiteral("route-exclude-address"));
+    QVERIFY(excludes && excludes->isSequence());
+    QStringList values;
+    for (const nq::yaml::Node& item : excludes->sequence)
+        values.append(item.value);
+    QCOMPARE(values, (QStringList{QStringLiteral("175.45.34.88/32"),
+                                  QStringLiteral("222.73.105.170/32")}));
+}
+
+void ScriptPipelineTest::rejectsInvalidTunRouteExcludesFromScript()
+{
+    const QString script = QStringLiteral(R"JS(function main(config) {
+    config.tun = config.tun || {};
+    config.tun["route-exclude-address"] = ["not-a-cidr"];
+    return config;
+})JS");
+    ScriptPipeline::Request request =
+        requestFor({step(QStringLiteral("s1"), QStringLiteral("坏排除项"), script)});
+    request.settings.tunEnabled = true;
+    const ScriptPipelineResult result = ScriptPipeline::process(request, nullptr);
+    QVERIFY(!result.ok);
+    QVERIFY2(result.error.contains(QStringLiteral("route-exclude-address")),
+             qPrintable(result.error));
 }
 
 QTEST_GUILESS_MAIN(ScriptPipelineTest)

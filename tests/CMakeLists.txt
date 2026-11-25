@@ -37,8 +37,7 @@ target_compile_definitions(test_service_recovery PRIVATE
 nyanq_add_test(test_runtime_config
     SOURCES
         test_runtime_config.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/../src/core/RuntimeConfig.cpp
-    LIBS Qt6::Core
+    LIBS nyanq_scripting
 )
 
 nyanq_add_test(test_api_parsers
