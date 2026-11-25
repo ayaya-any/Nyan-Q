@@ -75,6 +75,8 @@ struct ProxyGroup {
 struct ConnectionInfo {
     QString id;
     QString host;
+    QString destinationIp;
+    QString dnsMode;
     QString network;
     QString type;
     QString rule;

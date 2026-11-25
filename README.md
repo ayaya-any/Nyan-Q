@@ -19,6 +19,7 @@ Material 3 风格组件，通过本机 REST API 管理 Mihomo 内核。
 - 系统代理、TUN、局域网代理开关；TUN 支持保留订阅/脚本中的 `stack`、`mtu`、
   `strict-route`、`route-exclude-address` 等设置
 - TUN 首次启用时安装常驻 Helper 服务，之后无需重启整个应用或重复 UAC
+- 连接页同时显示域名和目标 IP，并标注 `DNS 反查` / `fake-ip` 来源
 - 导入 Clash / Mihomo YAML 订阅或本地文件，支持配额、到期时间、自动更新和热重载
 - 全窗口 YAML 编辑器，支持查找替换、未保存保护、配置重命名
 - 内置语言插件为 YAML 与 JavaScript 提供语法高亮、语法检查和代码提示，无外部 LSP 进程
@@ -150,6 +151,16 @@ IP/CIDR（`inet4/inet6-route-exclude-address` 旧写法会自动合并），无�
 注意：如果订阅没有自带 `dns`，Nyan-Q 会注入 fake-ip，域名解析结果是 `198.18.x.x`，
 `route-exclude-address` 只对应用直接连接 IP 的场景生效；域名流量仍经过 TUN，建议用
 `DIRECT` 规则绕过代理。
+
+```yaml
+tun:
+  stack: mips
+  mtu: 1400
+  strict-route: true
+  route-exclude-address:
+    - 175.45.34.88/32
+    - 222.73.105.170/32
+```
 
 ## 快捷键
 

@@ -76,6 +76,20 @@ target_compile_definitions(nyanq_yaml
     PUBLIC YAML_DECLARE_STATIC
     PRIVATE HAVE_CONFIG_H _CRT_SECURE_NO_WARNINGS)
 
+# Profile YAML model and managed runtime configuration. Kept separate from the
+# scripting engine so tests and the app can use it without pulling in QuickJS.
+add_library(nyanq_config STATIC
+    src/scripts/YamlDocument.cpp
+    src/core/RuntimeConfig.cpp
+)
+target_include_directories(nyanq_config PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
+target_link_libraries(nyanq_config
+    PUBLIC Qt6::Core
+    PRIVATE Qt6::Network nyanq_yaml)
+if(MSVC)
+    target_compile_options(nyanq_config PRIVATE /utf-8 /W3 /permissive- /Zc:__cplusplus)
+endif()
+
 # Built-in language plugins used by the editors. Adding another language is a
 # provider implementation plus one registration in LanguageRegistry.
 add_library(nyanq_lang STATIC
@@ -84,7 +98,8 @@ add_library(nyanq_lang STATIC
     src/lang/JavaScriptLanguageProvider.cpp
 )
 target_include_directories(nyanq_lang PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
-target_link_libraries(nyanq_lang PUBLIC Qt6::Core Qt6::Gui nyanq_yaml nyanq_quickjs)
+target_link_libraries(nyanq_lang PUBLIC Qt6::Core Qt6::Gui nyanq_yaml nyanq_quickjs
+    PRIVATE Qt6::Network)
 if(MSVC)
     target_compile_options(nyanq_lang PRIVATE /utf-8 /W3 /permissive- /Zc:__cplusplus)
 endif()
@@ -92,7 +107,6 @@ endif()
 # Script storage, execution, orchestration and final config validation. This
 # library is shared by the application and the automated tests.
 add_library(nyanq_scripting STATIC
-    src/scripts/YamlDocument.cpp
     src/scripts/ScriptTypes.cpp
     src/scripts/ScriptEngine.cpp
     src/scripts/ScriptPipeline.cpp
@@ -103,11 +117,10 @@ add_library(nyanq_scripting STATIC
     src/scripts/ScriptManager.cpp
     src/scripts/MihomoConfigValidator.cpp
     src/scripts/ConfigComposer.cpp
-    src/core/RuntimeConfig.cpp
 )
 target_include_directories(nyanq_scripting PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_link_libraries(nyanq_scripting
-    PUBLIC Qt6::Core Qt6::Network nyanq_yaml nyanq_quickjs)
+    PUBLIC Qt6::Core Qt6::Network nyanq_yaml nyanq_quickjs nyanq_config)
 if(MSVC)
     target_compile_options(nyanq_scripting PRIVATE /utf-8 /W3 /permissive- /Zc:__cplusplus)
 endif()

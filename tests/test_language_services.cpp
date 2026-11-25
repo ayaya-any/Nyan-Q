@@ -29,6 +29,7 @@ private slots:
     void registryResolvesByExtensionAndId();
     void yamlReportsSyntaxErrors();
     void yamlReportsDuplicateKeys();
+    void yamlReportsInvalidTunRoutePrefixes();
     void yamlCompletesTopLevelAndSections();
     void yamlCompletesValuesAndRules();
     void javascriptReportsSyntaxErrors();
@@ -90,6 +91,38 @@ void LanguageServicesTest::yamlReportsDuplicateKeys()
                        QStringLiteral("a.yaml"));
     QVERIFY(!diagnostics.isEmpty());
     QVERIFY(diagnostics.first().message.contains(QStringLiteral("重复")));
+}
+
+void LanguageServicesTest::yamlReportsInvalidTunRoutePrefixes()
+{
+    LanguageProvider* yaml = LanguageRegistry::instance().providerById(QStringLiteral("yaml"));
+    QVERIFY(yaml);
+
+    QVERIFY(yaml->diagnose(QStringLiteral("tun:\n"
+                                          "  route-exclude-address:\n"
+                                          "    - 192.168.0.0/16\n"
+                                          "    - fc00::/7\n"),
+                           QStringLiteral("a.yaml"))
+                .isEmpty());
+
+    const QVector<Diagnostic> diagnostics = yaml->diagnose(
+        QStringLiteral("tun:\n"
+                       "  route-exclude-address:\n"
+                       "    - not-a-cidr\n"
+                       "    - 10.0.0.0/33\n"
+                       "    - 192.168.0.0/16\n"),
+        QStringLiteral("a.yaml"));
+    QCOMPARE(diagnostics.size(), 2);
+    for (const Diagnostic& diagnostic : diagnostics) {
+        QCOMPARE(diagnostic.severity, DiagnosticSeverity::Warning);
+        QVERIFY(diagnostic.message.contains(QStringLiteral("IP/CIDR")));
+    }
+
+    const QVector<Diagnostic> scalar = yaml->diagnose(
+        QStringLiteral("tun:\n  route-exclude-address: 192.168.0.0/16\n"),
+        QStringLiteral("a.yaml"));
+    QCOMPARE(scalar.size(), 1);
+    QVERIFY(scalar.first().message.contains(QStringLiteral("列表")));
 }
 
 void LanguageServicesTest::yamlCompletesTopLevelAndSections()

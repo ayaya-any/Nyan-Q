@@ -223,7 +223,7 @@ void ScriptPipelineTest::preservesTunRouteExcludesFromScript()
     request.settings.tunEnabled = true;
     const ScriptPipelineResult result = ScriptPipeline::process(request, nullptr);
     QVERIFY2(result.ok, qPrintable(result.error));
-    QVERIFY2(result.warnings.join(QLatin1Char('\n')).contains(QStringLiteral("TUN 排除")),
+    QVERIFY2(result.warnings.join(QLatin1Char('\n')).contains(QStringLiteral("TUN 托管设置")),
              qPrintable(result.warnings.join(QLatin1Char('\n'))));
 
     nq::yaml::Document document;

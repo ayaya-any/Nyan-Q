@@ -14,6 +14,8 @@ public:
     enum Role {
         IdRole = Qt::UserRole + 1,
         HostRole,
+        DestinationIpRole,
+        DnsModeRole,
         NetworkRole,
         TypeRole,
         RuleRole,

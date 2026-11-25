@@ -2,6 +2,8 @@
 
 #include "yaml.h"
 
+#include <QAbstractSocket>
+#include <QHostAddress>
 #include <QRegularExpression>
 #include <QSet>
 #include <QStringList>
@@ -479,6 +481,45 @@ private:
     QTextCharFormat m_comment;
 };
 
+const QStringList& tunRouteKeys()
+{
+    static const QStringList keys = {
+        QStringLiteral("route-address"),
+        QStringLiteral("route-exclude-address"),
+        QStringLiteral("inet4-route-address"),
+        QStringLiteral("inet6-route-address"),
+        QStringLiteral("inet4-route-exclude-address"),
+        QStringLiteral("inet6-route-exclude-address"),
+    };
+    return keys;
+}
+
+bool isValidIpPrefix(const QString& text)
+{
+    const QString trimmed = text.trimmed();
+    const int slash = trimmed.indexOf(QLatin1Char('/'));
+    if (slash <= 0 || trimmed.indexOf(QLatin1Char('/'), slash + 1) >= 0)
+        return false;
+    const QString addressText = trimmed.left(slash);
+    const QString bitsText = trimmed.mid(slash + 1);
+    if (addressText.isEmpty() || bitsText.isEmpty())
+        return false;
+    for (const QChar ch : bitsText) {
+        if (!ch.isDigit())
+            return false;
+    }
+    QHostAddress address;
+    if (!address.setAddress(addressText))
+        return false;
+    bool ok = false;
+    const int bits = bitsText.toInt(&ok);
+    if (!ok)
+        return false;
+    const int maxBits =
+        address.protocol() == QAbstractSocket::IPv6Protocol ? 128 : 32;
+    return bits >= 0 && bits <= maxBits;
+}
+
 }  // namespace
 
 QVector<Diagnostic> YamlLanguageProvider::diagnose(const QString& text,
@@ -505,6 +546,7 @@ QVector<Diagnostic> YamlLanguageProvider::diagnose(const QString& text,
     };
     QVector<Frame> frames;
     QVector<bool> containers;  // true = mapping, false = sequence
+    QVector<QString> containerKeys;  // key that introduced each container
     QSet<QString> anchors;
     int documents = 0;
     const auto add = [&](DiagnosticSeverity severity, int line, int column, int length,
@@ -547,8 +589,11 @@ QVector<Diagnostic> YamlLanguageProvider::diagnose(const QString& text,
         case YAML_DOCUMENT_END_EVENT:
             break;
         case YAML_MAPPING_START_EVENT: {
-            if (!frames.isEmpty())
+            QString ownerKey;
+            if (!frames.isEmpty()) {
+                ownerKey = frames.last().pendingKey;
                 frames.last().pendingKey.clear();
+            }
             const QString anchor = event.data.mapping_start.anchor
                                        ? QString::fromUtf8(
                                              reinterpret_cast<const char*>(
@@ -558,6 +603,7 @@ QVector<Diagnostic> YamlLanguageProvider::diagnose(const QString& text,
                 anchors.insert(anchor);
             frames.append(Frame{});
             containers.append(true);
+            containerKeys.append(ownerKey);
             break;
         }
         case YAML_MAPPING_END_EVENT:
@@ -565,10 +611,15 @@ QVector<Diagnostic> YamlLanguageProvider::diagnose(const QString& text,
                 frames.removeLast();
             if (!containers.isEmpty())
                 containers.removeLast();
+            if (!containerKeys.isEmpty())
+                containerKeys.removeLast();
             break;
         case YAML_SEQUENCE_START_EVENT: {
-            if (!frames.isEmpty())
+            QString ownerKey;
+            if (!frames.isEmpty()) {
+                ownerKey = frames.last().pendingKey;
                 frames.last().pendingKey.clear();
+            }
             const QString anchor = event.data.sequence_start.anchor
                                        ? QString::fromUtf8(
                                              reinterpret_cast<const char*>(
@@ -577,11 +628,14 @@ QVector<Diagnostic> YamlLanguageProvider::diagnose(const QString& text,
             if (!anchor.isEmpty())
                 anchors.insert(anchor);
             containers.append(false);
+            containerKeys.append(ownerKey);
             break;
         }
         case YAML_SEQUENCE_END_EVENT:
             if (!containers.isEmpty())
                 containers.removeLast();
+            if (!containerKeys.isEmpty())
+                containerKeys.removeLast();
             break;
         case YAML_SCALAR_EVENT: {
             const QString value = QString::fromUtf8(
@@ -608,7 +662,33 @@ QVector<Diagnostic> YamlLanguageProvider::diagnose(const QString& text,
                     }
                     frame.pendingKey = value;
                 } else {
+                    const QString valueKey = frame.pendingKey;
                     frame.pendingKey.clear();
+                    if (containers.size() == 2 && containerKeys.size() == 2 &&
+                        containers.last() &&
+                        containerKeys.last() == QStringLiteral("tun") &&
+                        tunRouteKeys().contains(valueKey)) {
+                        add(DiagnosticSeverity::Warning,
+                            static_cast<int>(event.start_mark.line),
+                            static_cast<int>(event.start_mark.column),
+                            qMax(1, value.size()),
+                            QStringLiteral("tun.%1 应为 IP/CIDR 列表").arg(valueKey));
+                    }
+                }
+            } else if (!containers.isEmpty() && !containers.last()) {
+                const int depth = containers.size();
+                const bool tunRouteList =
+                    depth == 3 && containers.at(1) && !containers.at(2) &&
+                    containerKeys.size() == depth &&
+                    containerKeys.at(1) == QStringLiteral("tun") &&
+                    tunRouteKeys().contains(containerKeys.last());
+                if (tunRouteList && !isValidIpPrefix(value)) {
+                    add(DiagnosticSeverity::Warning,
+                        static_cast<int>(event.start_mark.line),
+                        static_cast<int>(event.start_mark.column),
+                        qMax(1, value.size()),
+                        QStringLiteral("tun.%1 的列表项“%2”不是有效的 IP/CIDR")
+                            .arg(containerKeys.last(), value));
                 }
             }
             break;

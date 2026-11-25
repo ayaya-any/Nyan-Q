@@ -49,7 +49,7 @@ void ConnectionsPage::buildUi()
     toolbar->setContentsMargins(0, 0, 0, 0);
     toolbar->setSpacing(8);
 
-    m_search = new SearchField(QStringLiteral("搜索主机、规则或链路"), card);
+    m_search = new SearchField(QStringLiteral("搜索主机、IP、规则或链路"), card);
     m_search->setFixedWidth(260);
     toolbar->addWidget(m_search);
 

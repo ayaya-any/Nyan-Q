@@ -525,7 +525,8 @@ QuickJS。打包脚本无需额外步骤。
 - `01-add-local-rules.js`：补充本地规则和 rule-provider；
 - `02-filter-proxies.js`：过滤节点并清理代理组引用；
 - `03-dns-fake-ip.js`：统一 DNS / fake-ip 过滤；
-- `04-async-main.js`：异步 Promise 入口。
+- `04-async-main.js`：异步 Promise 入口；
+- `05-tun-route-exclude.js`：让指定 IP/CIDR 绕过 TUN 虚拟网卡。
 
 最小示例：
 

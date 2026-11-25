@@ -1498,8 +1498,10 @@ bool ClashController::prepareRuntimeConfig(QString* error)
     QStringList warnings;
     if (!RuntimeConfig::write(source, runtime, m_settings, error, &warnings))
         return false;
+    // Generated-config notes repeat on every hot reload; keep them out of the
+    // normal log unless debug logging is enabled.
     for (const QString& warning : warnings)
-        log(cq::LogLevel::Info, warning);
+        log(cq::LogLevel::Debug, warning);
     m_activeConfigPath = runtime;
     return true;
 }

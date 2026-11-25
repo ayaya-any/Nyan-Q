@@ -541,11 +541,13 @@ QVector<cq::ConnectionInfo> MihomoApi::parseConnections(const QJsonObject& root,
         const QJsonObject metadata = object.value(QStringLiteral("metadata")).toObject();
         cq::ConnectionInfo info;
         info.id = object.value(QStringLiteral("id")).toString();
+        info.destinationIp = metadata.value(QStringLiteral("destinationIP")).toString();
+        info.dnsMode = metadata.value(QStringLiteral("dnsMode")).toString();
         info.host = metadata.value(QStringLiteral("host")).toString();
         if (info.host.isEmpty())
-            info.host = metadata.value(QStringLiteral("destinationIP")).toString();
+            info.host = info.destinationIp;
         const QString port = metadata.value(QStringLiteral("destinationPort")).toString();
-        if (!port.isEmpty() && info.host != port)
+        if (!info.host.isEmpty() && !port.isEmpty())
             info.host += QStringLiteral(":") + port;
         info.network = metadata.value(QStringLiteral("network")).toString();
         info.type = metadata.value(QStringLiteral("type")).toString();

@@ -72,13 +72,29 @@ void ApiParsersTest::parsesConnections()
                     "network": "tcp",
                     "type": "HTTPS",
                     "host": "api.example.com",
-                    "destinationPort": "443"
+                    "destinationIP": "203.0.113.9",
+                    "destinationPort": "443",
+                    "dnsMode": "redir-host"
                 },
                 "upload": 128,
                 "download": 2048,
                 "start": "2026-01-01T10:00:00.000Z",
                 "chains": ["节点选择", "香港 01"],
                 "rule": "DOMAIN-SUFFIX"
+            },
+            {
+                "id": "ip-only",
+                "metadata": {
+                    "network": "tcp",
+                    "type": "Tun",
+                    "destinationIP": "198.18.0.5",
+                    "destinationPort": "443"
+                },
+                "upload": 0,
+                "download": 0,
+                "start": "2026-01-01T10:00:01.000Z",
+                "chains": [],
+                "rule": "MATCH"
             }
         ]
     })";
@@ -88,9 +104,11 @@ void ApiParsersTest::parsesConnections()
     const auto connections = MihomoApi::parseConnections(root, &up, &down);
     QCOMPARE(up, 4096LL);
     QCOMPARE(down, 8192LL);
-    QCOMPARE(connections.size(), 1);
+    QCOMPARE(connections.size(), 2);
     const cq::ConnectionInfo& info = connections.first();
     QCOMPARE(info.host, QStringLiteral("api.example.com:443"));
+    QCOMPARE(info.destinationIp, QStringLiteral("203.0.113.9"));
+    QCOMPARE(info.dnsMode, QStringLiteral("redir-host"));
     QCOMPARE(info.network, QStringLiteral("tcp"));
     QCOMPARE(info.type, QStringLiteral("HTTPS"));
     QCOMPARE(info.rule, QStringLiteral("DOMAIN-SUFFIX"));
@@ -98,6 +116,11 @@ void ApiParsersTest::parsesConnections()
     QCOMPARE(info.upload, 128LL);
     QCOMPARE(info.download, 2048LL);
     QVERIFY(info.startedAt.isValid());
+
+    const cq::ConnectionInfo& ipOnly = connections.at(1);
+    QCOMPARE(ipOnly.host, QStringLiteral("198.18.0.5:443"));
+    QCOMPARE(ipOnly.destinationIp, QStringLiteral("198.18.0.5"));
+    QVERIFY(ipOnly.dnsMode.isEmpty());
 }
 
 QTEST_GUILESS_MAIN(ApiParsersTest)

@@ -29,6 +29,10 @@ QVariant ConnectionListModel::data(const QModelIndex& index, int role) const
         return connection.id;
     case HostRole:
         return connection.host;
+    case DestinationIpRole:
+        return connection.destinationIp;
+    case DnsModeRole:
+        return connection.dnsMode;
     case NetworkRole:
         return connection.network;
     case TypeRole:
@@ -47,9 +51,18 @@ QVariant ConnectionListModel::data(const QModelIndex& index, int role) const
         return connection.startedAt;
     case Qt::DisplayRole:
         return connection.host;
-    case Qt::ToolTipRole:
-        return QStringLiteral("%1\n%2 · %3\n%4")
-            .arg(connection.host, connection.network, connection.type, connection.chain);
+    case Qt::ToolTipRole: {
+        QString tooltip = QStringLiteral("%1\n%2 · %3\n%4")
+                              .arg(connection.host, connection.network, connection.type,
+                                   connection.chain);
+        if (!connection.destinationIp.isEmpty() &&
+            !connection.host.startsWith(connection.destinationIp)) {
+            tooltip += QStringLiteral("\n目标 IP：%1").arg(connection.destinationIp);
+        }
+        if (!connection.dnsMode.isEmpty())
+            tooltip += QStringLiteral(" · DNS：%1").arg(connection.dnsMode);
+        return tooltip;
+    }
     default:
         return {};
     }
@@ -58,9 +71,17 @@ QVariant ConnectionListModel::data(const QModelIndex& index, int role) const
 QHash<int, QByteArray> ConnectionListModel::roleNames() const
 {
     return {
-        {IdRole, "id"},       {HostRole, "host"},         {NetworkRole, "network"},
-        {TypeRole, "type"},   {RuleRole, "rule"},         {ChainRole, "chain"},
-        {UploadRole, "upload"}, {DownloadRole, "download"}, {StartRole, "start"},
+        {IdRole, "id"},
+        {HostRole, "host"},
+        {DestinationIpRole, "destinationIp"},
+        {DnsModeRole, "dnsMode"},
+        {NetworkRole, "network"},
+        {TypeRole, "type"},
+        {RuleRole, "rule"},
+        {ChainRole, "chain"},
+        {UploadRole, "upload"},
+        {DownloadRole, "download"},
+        {StartRole, "start"},
     };
 }
 
@@ -112,6 +133,8 @@ bool ConnectionFilterProxyModel::filterAcceptsRow(int sourceRow,
     const QModelIndex index = sourceModel()->index(sourceRow, 0, sourceParent);
     const QStringList values = {
         index.data(ConnectionListModel::HostRole).toString(),
+        index.data(ConnectionListModel::DestinationIpRole).toString(),
+        index.data(ConnectionListModel::DnsModeRole).toString(),
         index.data(ConnectionListModel::NetworkRole).toString(),
         index.data(ConnectionListModel::TypeRole).toString(),
         index.data(ConnectionListModel::RuleRole).toString(),
@@ -146,6 +169,8 @@ void ConnectionDelegate::paint(QPainter* painter, const QStyleOptionViewItem& op
     }
 
     const QString host = index.data(ConnectionListModel::HostRole).toString();
+    const QString destinationIp = index.data(ConnectionListModel::DestinationIpRole).toString();
+    const QString dnsMode = index.data(ConnectionListModel::DnsModeRole).toString();
     const QString network = index.data(ConnectionListModel::NetworkRole).toString();
     const QString type = index.data(ConnectionListModel::TypeRole).toString();
     const QString rule = index.data(ConnectionListModel::RuleRole).toString();
@@ -173,8 +198,12 @@ void ConnectionDelegate::paint(QPainter* painter, const QStyleOptionViewItem& op
     painter->setFont(hostFont);
     painter->setPen(p.onSurface);
     const qreal hostWidth = qMax<qreal>(60, trafficLeft - left - 12);
-    painter->drawText(QRectF(left, top, hostWidth, 19), Qt::AlignVCenter | Qt::AlignLeft,
-                      hostMetrics.elidedText(host, Qt::ElideMiddle, static_cast<int>(hostWidth)));
+    QString hostText = host;
+    if (!destinationIp.isEmpty() && !host.startsWith(destinationIp))
+        hostText += QStringLiteral("  ") + destinationIp;
+    painter->drawText(
+        QRectF(left, top, hostWidth, 19), Qt::AlignVCenter | Qt::AlignLeft,
+        hostMetrics.elidedText(hostText, Qt::ElideMiddle, static_cast<int>(hostWidth)));
 
     painter->setFont(valueFont);
     qreal x = trafficLeft + 2;
@@ -222,6 +251,10 @@ void ConnectionDelegate::paint(QPainter* painter, const QStyleOptionViewItem& op
     QString route = rule;
     if (!chain.isEmpty())
         route += QStringLiteral("  ·  ") + chain;
+    if (dnsMode == QStringLiteral("redir-host"))
+        route += QStringLiteral("  ·  DNS 反查");
+    else if (dnsMode == QStringLiteral("fake-ip"))
+        route += QStringLiteral("  ·  fake-ip");
     const QFont routeFont = Fonts::text(10);
     const QFontMetricsF routeMetrics(routeFont);
     painter->setFont(routeFont);

@@ -27,6 +27,11 @@ private slots:
     void reportsAppliedRouteExcludeCount();
     void fallsBackWhenProfileIsNotSingleYamlDocument();
     void acceptsQuotedTunKeyAndSpacedColon();
+    void skipsDnsHijackWhenProfileDnsDisabled();
+    void rejectsEnabledDnsWithoutNameserver();
+    void rejectsInvalidTunScalarTypes();
+    void warnsAboutDisabledIpv6AndCatchAllExclusions();
+    void warnsAboutFakeDnsWithRouteExcludes();
 };
 
 namespace {
@@ -133,8 +138,9 @@ void RuntimeConfigTest::overridesControlledTopLevelKeys()
 
 void RuntimeConfigTest::preservesExistingDnsAndAddsTun()
 {
-    const QString yaml =
-        sampleYaml() + QStringLiteral("\ndns:\n  enable: true\n  listen: 0.0.0.0:1053\n");
+    const QString yaml = sampleYaml() +
+                         QStringLiteral("\ndns:\n  enable: true\n  listen: 0.0.0.0:1053\n"
+                                        "  nameserver:\n    - 223.5.5.5\n");
     const QString result = RuntimeConfig::build(yaml, tunSettings());
 
     QVERIFY(result.contains(QStringLiteral("tun:")));
@@ -205,7 +211,7 @@ void RuntimeConfigTest::preservesTunRouteExcludes()
     QCOMPARE(routeExcludesOf(root),
              (QStringList{QStringLiteral("192.168.1.0/24"),
                           QStringLiteral("203.0.113.10/32")}));
-    QVERIFY(warnings.join(QLatin1Char('\n')).contains(QStringLiteral("TUN 排除")));
+    QVERIFY(warnings.join(QLatin1Char('\n')).contains(QStringLiteral("TUN 托管设置")));
 }
 
 void RuntimeConfigTest::readsRouteExcludesFromEveryYamlStyle()
@@ -457,6 +463,119 @@ void RuntimeConfigTest::acceptsQuotedTunKeyAndSpacedColon()
         QCOMPARE(routeExcludesOf(root), (QStringList{QStringLiteral("192.168.1.0/24")}));
         QCOMPARE(result.count(QStringLiteral("tun:")), 1);
     }
+}
+
+void RuntimeConfigTest::skipsDnsHijackWhenProfileDnsDisabled()
+{
+    const QString yaml = sampleYaml() +
+                         QStringLiteral("dns:\n  enable: false\n  nameserver:\n"
+                                        "    - 223.5.5.5\n");
+    QStringList warnings;
+    const QString result = RuntimeConfig::build(yaml, tunSettings(), nullptr, &warnings);
+    QVERIFY(!result.isEmpty());
+
+    const nq::yaml::Node root = parseRuntime(result);
+    QVERIFY(root.isMapping());
+    const nq::yaml::Node* tun = tunOf(root);
+    QVERIFY(tun);
+    QVERIFY(!tun->find(QStringLiteral("dns-hijack")));
+    const nq::yaml::Node* dns = root.find(QStringLiteral("dns"));
+    QVERIFY(dns);
+    QCOMPARE(dns->find(QStringLiteral("enable"))->value, QStringLiteral("false"));
+    QCOMPARE(result.count(QStringLiteral("dns:")), 1);
+    QVERIFY2(warnings.join(QLatin1Char('\n')).contains(QStringLiteral("未启用")),
+             qPrintable(warnings.join(QLatin1Char('\n'))));
+}
+
+void RuntimeConfigTest::rejectsEnabledDnsWithoutNameserver()
+{
+    QString error;
+    const QString result = RuntimeConfig::build(
+        sampleYaml() + QStringLiteral("dns:\n  enable: true\n"), tunSettings(), &error);
+    QVERIFY(result.isEmpty());
+    QVERIFY2(error.contains(QStringLiteral("nameserver")), qPrintable(error));
+
+    QString typeError;
+    const QString badType = RuntimeConfig::build(
+        sampleYaml() +
+            QStringLiteral("dns:\n  enable: \"true\"\n  nameserver:\n    - 223.5.5.5\n"),
+        tunSettings(), &typeError);
+    QVERIFY(badType.isEmpty());
+    QVERIFY2(typeError.contains(QStringLiteral("enable")), qPrintable(typeError));
+
+    QString entryError;
+    const QString badEntry = RuntimeConfig::build(
+        sampleYaml() +
+            QStringLiteral("dns:\n  enable: true\n  nameserver:\n    - {a: b}\n"),
+        tunSettings(), &entryError);
+    QVERIFY(badEntry.isEmpty());
+    QVERIFY2(entryError.contains(QStringLiteral("nameserver")), qPrintable(entryError));
+}
+
+void RuntimeConfigTest::rejectsInvalidTunScalarTypes()
+{
+    const QVector<QPair<QString, QString>> invalid = {
+        {QStringLiteral("tun:\n  stack: mipz\n"), QStringLiteral("stack")},
+        {QStringLiteral("tun:\n  mtu: \"1400\"\n"), QStringLiteral("mtu")},
+        {QStringLiteral("tun:\n  mtu: -1\n"), QStringLiteral("mtu")},
+        {QStringLiteral("tun:\n  gso: 1\n"), QStringLiteral("gso")},
+        {QStringLiteral("tun:\n  strict-route: \"true\"\n"), QStringLiteral("strict-route")},
+        {QStringLiteral("tun:\n  dns-mode: bogus\n"), QStringLiteral("dns-mode")},
+    };
+    for (const auto& [source, key] : invalid) {
+        QString error;
+        const QString result = RuntimeConfig::build(source, tunSettings(), &error);
+        QVERIFY2(result.isEmpty(), qPrintable(source));
+        QVERIFY2(error.contains(key), qPrintable(error));
+    }
+
+    const QString accepted = RuntimeConfig::build(
+        QStringLiteral("tun:\n  stack: system\n  mtu: 1400\n"
+                       "  strict-route: true\n  dns-mode: hijack\n"),
+        tunSettings());
+    QVERIFY(!accepted.isEmpty());
+    const nq::yaml::Node root = parseRuntime(accepted);
+    QVERIFY(root.isMapping());
+    const nq::yaml::Node* tun = tunOf(root);
+    QVERIFY(tun);
+    QCOMPARE(tun->find(QStringLiteral("stack"))->value, QStringLiteral("system"));
+    QCOMPARE(tun->find(QStringLiteral("mtu"))->value, QStringLiteral("1400"));
+    QCOMPARE(tun->find(QStringLiteral("strict-route"))->value, QStringLiteral("true"));
+    QCOMPARE(tun->find(QStringLiteral("dns-mode"))->value, QStringLiteral("hijack"));
+}
+
+void RuntimeConfigTest::warnsAboutDisabledIpv6AndCatchAllExclusions()
+{
+    const QString yaml = QStringLiteral(
+        "tun:\n  route-exclude-address:\n    - 0.0.0.0/0\n    - '::/0'\n"
+        "    - 2001:db8::/32\n");
+    QStringList warnings;
+    const QString result = RuntimeConfig::build(yaml, tunSettings(), nullptr, &warnings);
+    QVERIFY(!result.isEmpty());
+    QString text = warnings.join(QLatin1Char('\n'));
+    QVERIFY2(text.contains(QStringLiteral("无法接管")), qPrintable(text));
+    QVERIFY2(text.contains(QStringLiteral("IPv6")), qPrintable(text));
+
+    cq::AppSettings ipv6Settings = tunSettings();
+    ipv6Settings.ipv6 = true;
+    QStringList ipv6Warnings;
+    const QString ipv6Result =
+        RuntimeConfig::build(yaml, ipv6Settings, nullptr, &ipv6Warnings);
+    QVERIFY(!ipv6Result.isEmpty());
+    QVERIFY2(!ipv6Warnings.join(QLatin1Char('\n')).contains(QStringLiteral("IPv6")),
+             qPrintable(ipv6Warnings.join(QLatin1Char('\n'))));
+}
+
+void RuntimeConfigTest::warnsAboutFakeDnsWithRouteExcludes()
+{
+    QStringList warnings;
+    const QString result = RuntimeConfig::build(
+        QStringLiteral("tun:\n  route-exclude-address:\n    - 192.168.1.0/24\n"),
+        tunSettings(), nullptr, &warnings);
+    QVERIFY(!result.isEmpty());
+    const QString text = warnings.join(QLatin1Char('\n'));
+    QVERIFY2(text.contains(QStringLiteral("fake-ip")), qPrintable(text));
+    QVERIFY2(text.contains(QStringLiteral("直接连接 IP")), qPrintable(text));
 }
 
 QTEST_GUILESS_MAIN(RuntimeConfigTest)

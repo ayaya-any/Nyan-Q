@@ -37,7 +37,7 @@ target_compile_definitions(test_service_recovery PRIVATE
 nyanq_add_test(test_runtime_config
     SOURCES
         test_runtime_config.cpp
-    LIBS nyanq_scripting
+    LIBS nyanq_config
 )
 
 nyanq_add_test(test_api_parsers
@@ -59,7 +59,7 @@ nyanq_add_test(test_yaml_document
     SOURCES
         test_yaml_document.cpp
         yaml_sample.cpp
-    LIBS nyanq_scripting
+    LIBS nyanq_config
 )
 
 nyanq_add_test(test_language_services
