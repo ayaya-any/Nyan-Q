@@ -23,6 +23,7 @@ Material 3 风格组件，通过本机 REST API 管理 Mihomo 内核。
 - 导入 Clash / Mihomo YAML 订阅或本地文件，支持配额、到期时间、自动更新和热重载
 - 全窗口 YAML 编辑器，支持查找替换、未保存保护、配置重命名
 - 内置语言插件为 YAML 与 JavaScript 提供语法高亮、语法检查和代码提示，无外部 LSP 进程
+- 编辑器支持 `Shift+Alt+F` 一键格式化：YAML 重新整理块结构缩进（保留注释，块标量内容随父级偏移），JavaScript 整理缩进与空行；格式化前会校验不会改变文档语义
 - JavaScript 配置覆写：QuickJS 独立沙箱、全局/订阅专属脚本、排序、远程脚本更新、历史版本与回滚、预览差异
 - 深色 / 浅色 / 跟随系统主题
 - 系统托盘、单实例、开机启动、启动时最小化、关闭到托盘
@@ -81,7 +82,7 @@ build\Release\Nyan-Q.exe
 输出：
 
 - `dist\Nyan-Q\`
-- `dist\Nyan-Q-0.2.3-win64.zip`
+- `dist\Nyan-Q-0.2.4-win64.zip`
 
 制作简体中文安装包：
 
@@ -91,7 +92,7 @@ build\Release\Nyan-Q.exe
 
 输出：
 
-- `dist\Nyan-Q-0.2.3-win64-setup.exe`
+- `dist\Nyan-Q-0.2.4-win64-setup.exe`
 - 默认安装到 `%LOCALAPPDATA%\Programs\Nyan-Q`
 - 安装前检测并安装所需的 MSVC x64 运行库
 - 卸载默认保留 `%LOCALAPPDATA%\Nyan-Q` 中的配置和订阅
@@ -99,7 +100,7 @@ build\Release\Nyan-Q.exe
 安装包由 `nyan-setup.exe pack` 生成，可用以下命令无界面校验归档完整性：
 
 ```powershell
-.\dist\Nyan-Q-0.2.3-win64-setup.exe --extract-to .\build\installer-verify
+.\dist\Nyan-Q-0.2.4-win64-setup.exe --extract-to .\build\installer-verify
 ```
 
 ### 发布
@@ -140,8 +141,9 @@ TUN 需要管理员权限，但 Nyan-Q 不再让 GUI 以管理员身份重启。
 
 Helper 短暂失联时，Nyan-Q 会自动重连并核验内核状态。若故障持续，请查看应用内的
 **日志**页，或按 [Helper 通信故障排查](docs/helper-service.md#通信故障与恢复) 查找日志文件。
-从旧版升级到 0.2.3 后，首次启用 TUN 时可能需要确认一次 UAC 以更新 Helper，详见
-[0.2.3 升级说明](docs/release-notes/v0.2.3.md#升级说明)。安装位置、安全边界和卸载命令见
+本版本（0.2.4）与 0.2.3 兼容：Helper 协议、数据目录与配置格式未变化，升级不需要
+更新 Helper 或确认额外 UAC，详见
+[0.2.4 升级说明](docs/release-notes/v0.2.4.md#升级说明)。安装位置、安全边界和卸载命令见
 [Helper 服务](docs/helper-service.md)。
 
 TUN 设置会合并保留订阅或脚本里的 `tun` 字段：`stack`、`mtu`、`strict-route`、
@@ -175,6 +177,7 @@ tun:
 | `Ctrl+/` | 切换行注释 |
 | `Alt+↑` / `Alt+↓` | 移动当前行 |
 | `Ctrl+Space` | 代码提示（YAML / 脚本编辑器） |
+| `Shift+Alt+F` | 格式化当前文档（YAML / JavaScript） |
 | `Ctrl+W` | 关闭编辑器 |
 
 ## 数据目录
@@ -250,7 +253,7 @@ ctest --test-dir build -C Release --output-on-failure
 - TUN 模式首次启用需要安装常驻 Helper 服务并确认一次 UAC；之后启动应用不会再请求 UAC。覆盖更新或卸载时 Nyan Setup 会停止/恢复或删除该服务，详见 [Helper 服务](docs/helper-service.md)
 - TUN 的 `route-exclude-address` 只支持 IP/CIDR；域名流量仍会经过 TUN，需要按域名绕过代理时请使用 `DIRECT` 规则
 - 界面当前仅提供中文
-- 内置语言服务提供语法高亮、语法检查与补全；不提供完整的文档格式化、重命名等 LSP 高级功能
+- 内置语言服务提供语法高亮、语法检查、补全与一键格式化（`Shift+Alt+F`：YAML 结构缩进与注释对齐、JavaScript 缩进/空行整理）；不提供 Prettier 级别的换行/空格重排、重命名等 LSP 高级功能
 - 内核版本固定为 `v1.19.33`，升级时更新 `scripts/fetch-deps.ps1` 中的版本与校验和
 - JavaScript 覆写会在脚本生效时重新序列化 YAML，原订阅中的注释和自定义排版不会保留；
   字段、值、顺序和未知扩展键会保留
