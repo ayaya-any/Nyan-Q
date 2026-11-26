@@ -26,6 +26,18 @@ public:
                                          const QString& filePath) const = 0;
     virtual QVector<CompletionItem> completions(const CompletionRequest& request) const = 0;
 
+    // Whole-document formatting is optional. Plugins that return true here
+    // must return a formatted document or an actionable error from format().
+    virtual bool supportsFormatting() const { return false; }
+    virtual FormatResult format(const QString& text, const QString& filePath) const
+    {
+        Q_UNUSED(text)
+        Q_UNUSED(filePath)
+        FormatResult result;
+        result.error = QStringLiteral("当前语言不支持格式化");
+        return result;
+    }
+
     virtual QSyntaxHighlighter* createHighlighter(QTextDocument* document,
                                                   const LanguageTheme& theme) const = 0;
 

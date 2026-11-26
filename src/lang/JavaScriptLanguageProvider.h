@@ -15,6 +15,8 @@ public:
 
     QVector<Diagnostic> diagnose(const QString& text, const QString& filePath) const override;
     QVector<CompletionItem> completions(const CompletionRequest& request) const override;
+    bool supportsFormatting() const override { return true; }
+    FormatResult format(const QString& text, const QString& filePath) const override;
     QSyntaxHighlighter* createHighlighter(QTextDocument* document,
                                           const LanguageTheme& theme) const override;
     QString lineCommentPrefix() const override { return QStringLiteral("// "); }

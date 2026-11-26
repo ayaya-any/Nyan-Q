@@ -1,5 +1,7 @@
 #include "lang/YamlLanguageProvider.h"
 
+#include "lang/DocumentFormatter.h"
+
 #include "yaml.h"
 
 #include <QAbstractSocket>
@@ -826,6 +828,12 @@ QSyntaxHighlighter* YamlLanguageProvider::createHighlighter(
     QTextDocument* document, const LanguageTheme& theme) const
 {
     return new YamlHighlighter(document, theme);
+}
+
+FormatResult YamlLanguageProvider::format(const QString& text, const QString& filePath) const
+{
+    Q_UNUSED(filePath)
+    return DocumentFormatter::formatYaml(text);
 }
 
 }  // namespace nq::lang

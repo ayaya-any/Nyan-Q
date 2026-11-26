@@ -402,6 +402,52 @@ void CodeEditor::acceptCompletion()
     setFocus();
 }
 
+bool CodeEditor::formatDocument(QString* error)
+{
+    hideCompletions();
+    QString failure;
+    if (!m_provider) {
+        failure = QStringLiteral("当前文件没有匹配的语言插件，无法格式化");
+    } else if (!m_provider->supportsFormatting()) {
+        failure = QStringLiteral("当前语言不支持格式化");
+    } else if (toPlainText().size() > 4 * 1024 * 1024) {
+        failure = QStringLiteral("文档超过 4 MB，已跳过格式化");
+    } else {
+        const QString source = toPlainText();
+        const nq::lang::FormatResult result = m_provider->format(source, m_documentPath);
+        if (!result.ok) {
+            failure = result.error.isEmpty() ? QStringLiteral("格式化失败") : result.error;
+        } else if (result.text == source) {
+            if (error)
+                error->clear();
+            emit formatFinished(true, QStringLiteral("文档已符合格式化结果"));
+            return true;
+        } else {
+            const int position = textCursor().position();
+            const int anchor = textCursor().anchor();
+            QTextCursor edit(document());
+            edit.beginEditBlock();
+            edit.select(QTextCursor::Document);
+            edit.insertText(result.text);
+            edit.endEditBlock();
+            const int maxPosition = qMax(0, document()->characterCount() - 1);
+            QTextCursor restored(document());
+            restored.setPosition(qBound(0, anchor, maxPosition));
+            restored.setPosition(qBound(0, position, maxPosition), QTextCursor::KeepAnchor);
+            setTextCursor(restored);
+            ensureCursorVisible();
+            if (error)
+                error->clear();
+            emit formatFinished(true, QStringLiteral("已格式化文档"));
+            return true;
+        }
+    }
+    if (error)
+        *error = failure;
+    emit formatFinished(false, failure);
+    return false;
+}
+
 void CodeEditor::keyPressEvent(QKeyEvent* event)
 {
     const bool ctrl = event->modifiers().testFlag(Qt::ControlModifier);
@@ -437,6 +483,12 @@ void CodeEditor::keyPressEvent(QKeyEvent* event)
         }
     }
 
+    // VS Code compatible format-document shortcut.
+    if (shift && alt && event->key() == Qt::Key_F) {
+        formatDocument();
+        event->accept();
+        return;
+    }
     if (ctrl && event->key() == Qt::Key_Space) {
         requestCompletions();
         event->accept();
@@ -570,8 +622,7 @@ void CodeEditor::deleteCurrentLine()
 }
 
 void CodeEditor::insertLine(bool below)
-{
-    QTextBlock block = textCursor().block();
+{    QTextBlock block = textCursor().block();
     if (!block.isValid())
         return;
     const QString indent =

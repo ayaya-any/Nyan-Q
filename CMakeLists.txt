@@ -96,6 +96,7 @@ add_library(nyanq_lang STATIC
     src/lang/LanguageRegistry.cpp
     src/lang/YamlLanguageProvider.cpp
     src/lang/JavaScriptLanguageProvider.cpp
+    src/lang/DocumentFormatter.cpp
 )
 target_include_directories(nyanq_lang PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_link_libraries(nyanq_lang PUBLIC Qt6::Core Qt6::Gui nyanq_yaml nyanq_quickjs

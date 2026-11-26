@@ -38,6 +38,14 @@ struct CompletionRequest {
     QString filePath;
 };
 
+// Result of a whole-document format operation. `text` is only valid when
+// `ok` is true; `error` carries an actionable message otherwise.
+struct FormatResult {
+    bool ok = false;
+    QString text;
+    QString error;
+};
+
 struct LanguageTheme {
     QColor keyword;
     QColor string;

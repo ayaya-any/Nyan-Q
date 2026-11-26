@@ -1,5 +1,7 @@
 #include "lang/JavaScriptLanguageProvider.h"
 
+#include "lang/DocumentFormatter.h"
+
 #include "quickjs.h"
 
 #include <QRegularExpression>
@@ -492,6 +494,13 @@ QSyntaxHighlighter* JavaScriptLanguageProvider::createHighlighter(
     QTextDocument* document, const LanguageTheme& theme) const
 {
     return new JavaScriptHighlighter(document, theme);
+}
+
+FormatResult JavaScriptLanguageProvider::format(const QString& text,
+                                                const QString& filePath) const
+{
+    Q_UNUSED(filePath)
+    return DocumentFormatter::formatJavaScript(text);
 }
 
 }  // namespace nq::lang

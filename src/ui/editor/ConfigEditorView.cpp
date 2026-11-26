@@ -169,7 +169,9 @@ void ConfigEditorView::buildUi()
     sideLayout->addWidget(m_feedback);
 
     auto* shortcuts = captionLabel(
-        QStringLiteral("Ctrl+S 保存 · Ctrl+F 查找\nCtrl+Space 提示 · Ctrl+W 关闭"), side);
+        QStringLiteral("Ctrl+S 保存 · Ctrl+F 查找 · Shift+Alt+F 格式化\n"
+                       "Ctrl+Space 提示 · Ctrl+W 关闭"),
+        side);
     shortcuts->setWordWrap(true);
     sideLayout->addWidget(shortcuts);
 
@@ -202,6 +204,11 @@ void ConfigEditorView::buildUi()
     quickFind->setGlyphSize(16);
     quickFind->setToolTip(QStringLiteral("查找 (Ctrl+F)"));
     tabLayout->addWidget(quickFind);
+    auto* quickFormat = new M3IconButton(QStringLiteral("auto_fix_high"), tabBar);
+    quickFormat->setDiameter(30);
+    quickFormat->setGlyphSize(16);
+    quickFormat->setToolTip(QStringLiteral("格式化文档 (Shift+Alt+F)"));
+    tabLayout->addWidget(quickFormat);
     auto* quickSave = new M3IconButton(QStringLiteral("save"), tabBar);
     quickSave->setDiameter(30);
     quickSave->setGlyphSize(16);
@@ -279,6 +286,8 @@ void ConfigEditorView::buildUi()
     connect(quickSave, &QAbstractButton::clicked, this, &ConfigEditorView::saveContent);
     connect(m_revertButton, &QAbstractButton::clicked, this, &ConfigEditorView::revertContent);
     connect(quickFind, &QAbstractButton::clicked, this, [this] { showFindBar(false); });
+    connect(quickFormat, &QAbstractButton::clicked, this,
+            [this] { m_editor->formatDocument(); });
     connect(prev, &QAbstractButton::clicked, this, [this] { findNext(true); });
     connect(next, &QAbstractButton::clicked, this, [this] { findNext(false); });
     connect(replace, &QAbstractButton::clicked, this, &ConfigEditorView::replaceOne);
@@ -289,6 +298,8 @@ void ConfigEditorView::buildUi()
     connect(m_nameEdit, &QLineEdit::editingFinished, this, &ConfigEditorView::commitName);
     connect(m_editor, &CodeEditor::searchRequested, this, [this] { showFindBar(false); });
     connect(m_editor, &CodeEditor::replaceRequested, this, [this] { showFindBar(true); });
+    connect(m_editor, &CodeEditor::formatFinished, this,
+            [this](bool ok, const QString& message) { setFeedback(message, !ok); });
     connect(m_editor, &CodeEditor::cursorInfoChanged, this,
             &ConfigEditorView::updateCursorStatus);
 }

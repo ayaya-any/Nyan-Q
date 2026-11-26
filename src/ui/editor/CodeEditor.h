@@ -33,10 +33,15 @@ public:
     void setDiagnostics(const QVector<nq::lang::Diagnostic>& diagnostics);
     const QVector<nq::lang::Diagnostic>& diagnostics() const { return m_diagnostics; }
 
+    // Formats the whole document through the active language provider. Emits
+    // formatFinished() with a user-facing message in both success and failure.
+    bool formatDocument(QString* error = nullptr);
+
 signals:
     void cursorInfoChanged(int line, int column);
     void searchRequested();
     void replaceRequested();
+    void formatFinished(bool ok, const QString& message);
     void diagnosticsChanged(int errors, int warnings);
 
 protected:

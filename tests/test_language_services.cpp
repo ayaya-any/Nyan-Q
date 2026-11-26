@@ -1,5 +1,6 @@
 #include "lang/LanguageRegistry.h"
 
+#include <QFile>
 #include <QTest>
 
 using namespace nq::lang;
@@ -35,6 +36,13 @@ private slots:
     void javascriptReportsSyntaxErrors();
     void javascriptWarnsMissingMain();
     void javascriptCompletesKeywordsAndConfig();
+    void yamlFormatsIndentAndComments();
+    void yamlFormattingShiftsBlockScalarContent();
+    void yamlFormatsAnchorsAndFlowStyle();
+    void yamlFormatsStarterConfig();
+    void yamlFormatterRejectsInvalidSyntax();
+    void javascriptFormatsIndentation();
+    void javascriptFormatterPreservesTemplatesAndComments();
 };
 
 void LanguageServicesTest::registryResolvesByExtensionAndId()
@@ -51,6 +59,13 @@ void LanguageServicesTest::registryResolvesByExtensionAndId()
     QCOMPARE(registry.providerForPath(QStringLiteral("script.mjs"))->id(),
              QStringLiteral("javascript"));
     QVERIFY(registry.providers().size() >= 2);
+    LanguageProvider* yaml = registry.providerById(QStringLiteral("yaml"));
+    LanguageProvider* javascript = registry.providerById(QStringLiteral("javascript"));
+    QVERIFY(yaml && yaml->supportsFormatting());
+    QVERIFY(javascript && javascript->supportsFormatting());
+    FormatResult formatted = yaml->format(QStringLiteral("a:  1\n"), QStringLiteral("a.yaml"));
+    QVERIFY2(formatted.ok, qPrintable(formatted.error));
+    QCOMPARE(formatted.text, QStringLiteral("a:  1\n"));
 }
 
 void LanguageServicesTest::yamlReportsSyntaxErrors()
@@ -214,6 +229,200 @@ void LanguageServicesTest::javascriptCompletesKeywordsAndConfig()
         javascript->completions(requestAtEnd(QStringLiteral("config.dns[\""))));
     QVERIFY(dnsBracket.contains(QStringLiteral("enhanced-mode")));
     QVERIFY(dnsBracket.contains(QStringLiteral("fake-ip-range")));
+}
+
+void LanguageServicesTest::yamlFormatsIndentAndComments()
+{
+    LanguageProvider* yaml = LanguageRegistry::instance().providerById(QStringLiteral("yaml"));
+    QVERIFY(yaml);
+    const QString input = QStringLiteral(
+        "mixed-port: 7890\n"
+        "ports:\n"
+        "    - 7890\n"
+        "   # section\n"
+        "proxies:\n"
+        "    - name: test\n"
+        "      type: ss\n"
+        "      server: example.com\n"
+        "rules:\n"
+        "    - MATCH,DIRECT\n"
+        "script: |\n"
+        "  line one\n"
+        "    line two\n"
+        "  line three\n"
+        "\n"
+        "dns:\n"
+        "    enable: true\n");
+    const QString expected = QStringLiteral(
+        "mixed-port: 7890\n"
+        "ports:\n"
+        "  - 7890\n"
+        "# section\n"
+        "proxies:\n"
+        "  - name: test\n"
+        "    type: ss\n"
+        "    server: example.com\n"
+        "rules:\n"
+        "  - MATCH,DIRECT\n"
+        "script: |\n"
+        "  line one\n"
+        "    line two\n"
+        "  line three\n"
+        "\n"
+        "dns:\n"
+        "  enable: true\n");
+    FormatResult result = yaml->format(input, QStringLiteral("a.yaml"));
+    QVERIFY2(result.ok, qPrintable(result.error));
+    QCOMPARE(result.text, expected);
+    // Formatting is idempotent.
+    FormatResult again = yaml->format(result.text, QStringLiteral("a.yaml"));
+    QVERIFY2(again.ok, qPrintable(again.error));
+    QCOMPARE(again.text, result.text);
+}
+
+void LanguageServicesTest::yamlFormattingShiftsBlockScalarContent()
+{
+    LanguageProvider* yaml = LanguageRegistry::instance().providerById(QStringLiteral("yaml"));
+    QVERIFY(yaml);
+    const QString input = QStringLiteral(
+        "script: |\n"
+        "    line1\n"
+        "      line2\n"
+        "list:\n"
+        "    - |-\n"
+        "        item1\n"
+        "        item2\n");
+    const QString expected = QStringLiteral(
+        "script: |\n"
+        "    line1\n"
+        "      line2\n"
+        "list:\n"
+        "  - |-\n"
+        "      item1\n"
+        "      item2\n");
+    FormatResult result = yaml->format(input, QStringLiteral("a.yaml"));
+    QVERIFY2(result.ok, qPrintable(result.error));
+    QCOMPARE(result.text, expected);
+}
+
+void LanguageServicesTest::yamlFormatsAnchorsAndFlowStyle()
+{
+    LanguageProvider* yaml = LanguageRegistry::instance().providerById(QStringLiteral("yaml"));
+    QVERIFY(yaml);
+    const QString input = QStringLiteral(
+        "defaults: &def\n"
+        "    interval: 300\n"
+        "    timeout: 5\n"
+        "proxies:\n"
+        "    - {name: a, type: ss}\n"
+        "    - name: b\n"
+        "      <<: *def\n"
+        "      ports: [80, 443]\n"
+        "      note: \"multi\n"
+        "        line\"\n");
+    const QString expected = QStringLiteral(
+        "defaults: &def\n"
+        "  interval: 300\n"
+        "  timeout: 5\n"
+        "proxies:\n"
+        "  - {name: a, type: ss}\n"
+        "  - name: b\n"
+        "    <<: *def\n"
+        "    ports: [80, 443]\n"
+        "    note: \"multi\n"
+        "      line\"\n");
+    FormatResult result = yaml->format(input, QStringLiteral("a.yaml"));
+    QVERIFY2(result.ok, qPrintable(result.error));
+    QCOMPARE(result.text, expected);
+}
+
+void LanguageServicesTest::yamlFormatsStarterConfig()
+{
+    LanguageProvider* yaml = LanguageRegistry::instance().providerById(QStringLiteral("yaml"));
+    QVERIFY(yaml);
+    const QString path = QFINDTESTDATA("../resources/config/starter.yaml");
+    QVERIFY(path.isEmpty() == false);
+    QFile file(path);
+    QVERIFY(file.open(QIODevice::ReadOnly));
+    const QString input = QString::fromUtf8(file.readAll());
+    file.close();
+    FormatResult result = yaml->format(input, path);
+    QVERIFY2(result.ok, qPrintable(result.error));
+    QVERIFY(result.text.contains(QStringLiteral("# Nyan-Q built-in starter configuration.")));
+    QVERIFY(result.text.endsWith(QLatin1Char('\n')));
+    FormatResult again = yaml->format(result.text, path);
+    QVERIFY2(again.ok, qPrintable(again.error));
+    QCOMPARE(again.text, result.text);
+}
+
+void LanguageServicesTest::yamlFormatterRejectsInvalidSyntax()
+{
+    LanguageProvider* yaml = LanguageRegistry::instance().providerById(QStringLiteral("yaml"));
+    QVERIFY(yaml);
+    FormatResult result =
+        yaml->format(QStringLiteral("proxies:\n  - name: [unclosed\n"), QStringLiteral("a.yaml"));
+    QVERIFY(!result.ok);
+    QVERIFY(result.text.isEmpty());
+    QVERIFY2(result.error.contains(QStringLiteral("YAML")), qPrintable(result.error));
+}
+
+void LanguageServicesTest::javascriptFormatsIndentation()
+{
+    LanguageProvider* javascript =
+        LanguageRegistry::instance().providerById(QStringLiteral("javascript"));
+    QVERIFY(javascript);
+    const QString input = QStringLiteral(
+        "function main(config, profileName) {\n"
+        "const rules = []\n"
+        "if (config) {\n"
+        "rules.push(\"MATCH,DIRECT\")\n"
+        "}\n"
+        "return config\n"
+        "}\n");
+    const QString expected = QStringLiteral(
+        "function main(config, profileName) {\n"
+        "  const rules = []\n"
+        "  if (config) {\n"
+        "    rules.push(\"MATCH,DIRECT\")\n"
+        "  }\n"
+        "  return config\n"
+        "}\n");
+    FormatResult result = javascript->format(input, QStringLiteral("a.js"));
+    QVERIFY2(result.ok, qPrintable(result.error));
+    QCOMPARE(result.text, expected);
+    FormatResult again = javascript->format(result.text, QStringLiteral("a.js"));
+    QVERIFY2(again.ok, qPrintable(again.error));
+    QCOMPARE(again.text, result.text);
+}
+
+void LanguageServicesTest::javascriptFormatterPreservesTemplatesAndComments()
+{
+    LanguageProvider* javascript =
+        LanguageRegistry::instance().providerById(QStringLiteral("javascript"));
+    QVERIFY(javascript);
+    const QString input = QStringLiteral(
+        "const t = `a\n"
+        "    keep   this\n"
+        "b`;\n"
+        "// comment { not a brace\n"
+        "const s = \"{\"\n"
+        "const r = /[{}]/\n"
+        "if (s) {\n"
+        "console.log(t, r)\n"
+        "}\n");
+    const QString expected = QStringLiteral(
+        "const t = `a\n"
+        "    keep   this\n"
+        "b`;\n"
+        "// comment { not a brace\n"
+        "const s = \"{\"\n"
+        "const r = /[{}]/\n"
+        "if (s) {\n"
+        "  console.log(t, r)\n"
+        "}\n");
+    FormatResult result = javascript->format(input, QStringLiteral("a.js"));
+    QVERIFY2(result.ok, qPrintable(result.error));
+    QCOMPARE(result.text, expected);
 }
 
 QTEST_GUILESS_MAIN(LanguageServicesTest)

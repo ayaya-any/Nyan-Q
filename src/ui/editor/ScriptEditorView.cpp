@@ -202,7 +202,8 @@ void ScriptEditorView::buildUi()
     m_feedback = microLabel(QString(), side);
     sideLayout->addWidget(m_feedback);
     sideLayout->addWidget(microLabel(
-        QStringLiteral("Ctrl+S 保存 · Ctrl+F 查找\nCtrl+W 关闭"), side));
+        QStringLiteral("Ctrl+S 保存 · Ctrl+F 查找 · Shift+Alt+F 格式化\nCtrl+W 关闭"),
+        side));
 
     root->addWidget(side);
 
@@ -233,6 +234,11 @@ void ScriptEditorView::buildUi()
     quickFind->setGlyphSize(16);
     quickFind->setToolTip(QStringLiteral("查找 (Ctrl+F)"));
     tabLayout->addWidget(quickFind);
+    auto* quickFormat = new M3IconButton(QStringLiteral("auto_fix_high"), tabBar);
+    quickFormat->setDiameter(30);
+    quickFormat->setGlyphSize(16);
+    quickFormat->setToolTip(QStringLiteral("格式化文档 (Shift+Alt+F)"));
+    tabLayout->addWidget(quickFormat);
     auto* quickSave = new M3IconButton(QStringLiteral("save"), tabBar);
     quickSave->setDiameter(30);
     quickSave->setGlyphSize(16);
@@ -293,6 +299,8 @@ void ScriptEditorView::buildUi()
     });
     connect(m_saveButton, &QAbstractButton::clicked, this, &ScriptEditorView::saveContent);
     connect(quickSave, &QAbstractButton::clicked, this, &ScriptEditorView::saveContent);
+    connect(quickFormat, &QAbstractButton::clicked, this,
+            [this] { m_editor->formatDocument(); });
     connect(quickFind, &QAbstractButton::clicked, this, &ScriptEditorView::showFindBar);
     connect(test, &QAbstractButton::clicked, this, &ScriptEditorView::testScript);
     connect(bindings, &QAbstractButton::clicked, this, &ScriptEditorView::openBindings);
@@ -353,6 +361,8 @@ void ScriptEditorView::wire()
         m_cursorLabel->setText(QStringLiteral("行 %1，列 %2").arg(line).arg(column));
     });
     connect(m_editor, &CodeEditor::searchRequested, this, &ScriptEditorView::showFindBar);
+    connect(m_editor, &CodeEditor::formatFinished, this,
+            [this](bool ok, const QString& message) { setFeedback(message, !ok); });
 
     auto* saveShortcut = new QShortcut(QKeySequence::Save, this);
     saveShortcut->setContext(Qt::WidgetWithChildrenShortcut);
