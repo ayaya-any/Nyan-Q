@@ -249,7 +249,12 @@ if ($Installer) {
     if (Test-Path -LiteralPath $payloadRedist) {
         Remove-Item -LiteralPath $payloadRedist -Force
     }
-    Get-ChildItem -LiteralPath $SetupPayload -Recurse -File -Include *.log,*.pdb,package-*.png |
+    # -Include is ineffective for a literal directory path under Windows
+    # PowerShell 5.1 (it would match every file); filter explicitly so the
+    # installer payload keeps all runtime files under both PS 5.1 and PS 7.
+    Get-ChildItem -LiteralPath $SetupPayload -Recurse -File |
+        Where-Object { $_.Name -like '*.log' -or $_.Name -like '*.pdb' -or
+                       $_.Name -like 'package-*.png' } |
         Remove-Item -Force -ErrorAction SilentlyContinue
 
     $licenseText = Get-Content -LiteralPath (Join-Path $Root "LICENSE") -Raw
