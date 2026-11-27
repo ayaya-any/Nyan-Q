@@ -82,7 +82,7 @@ build\Release\Nyan-Q.exe
 输出：
 
 - `dist\Nyan-Q\`
-- `dist\Nyan-Q-0.2.4-win64.zip`
+- `dist\Nyan-Q-0.2.5-win64.zip`
 
 制作简体中文安装包：
 
@@ -92,7 +92,7 @@ build\Release\Nyan-Q.exe
 
 输出：
 
-- `dist\Nyan-Q-0.2.4-win64-setup.exe`
+- `dist\Nyan-Q-0.2.5-win64-setup.exe`
 - 默认安装到 `%LOCALAPPDATA%\Programs\Nyan-Q`
 - 安装前检测并安装所需的 MSVC x64 运行库
 - 卸载默认保留 `%LOCALAPPDATA%\Nyan-Q` 中的配置和订阅
@@ -100,7 +100,7 @@ build\Release\Nyan-Q.exe
 安装包由 `nyan-setup.exe pack` 生成，可用以下命令无界面校验归档完整性：
 
 ```powershell
-.\dist\Nyan-Q-0.2.4-win64-setup.exe --extract-to .\build\installer-verify
+.\dist\Nyan-Q-0.2.5-win64-setup.exe --extract-to .\build\installer-verify
 ```
 
 ### 发布
@@ -155,9 +155,9 @@ TUN 需要管理员权限，但 Nyan-Q 不再让 GUI 以管理员身份重启。
 
 Helper 短暂失联时，Nyan-Q 会自动重连并核验内核状态。若故障持续，请查看应用内的
 **日志**页，或按 [Helper 通信故障排查](docs/helper-service.md#通信故障与恢复) 查找日志文件。
-本版本（0.2.4）与 0.2.3 兼容：Helper 协议、数据目录与配置格式未变化，升级不需要
+本版本（0.2.5）与 0.2.3 / 0.2.4 兼容：Helper 协议、数据目录与配置格式未变化，升级不需要
 更新 Helper 或确认额外 UAC，详见
-[0.2.4 升级说明](docs/release-notes/v0.2.4.md#升级说明)。安装位置、安全边界和卸载命令见
+[0.2.5 升级说明](docs/release-notes/v0.2.5.md#升级说明)。安装位置、安全边界和卸载命令见
 [Helper 服务](docs/helper-service.md)。
 
 TUN 设置会合并保留订阅或脚本里的 `tun` 字段：`stack`、`mtu`、`strict-route`、
