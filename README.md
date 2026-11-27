@@ -1,7 +1,7 @@
 # Nyan-Q
 
 <p align="center">
-  <img src="docs/screenshots/app-icon.png" width="88" alt="Nyan-Q">
+  <img src="docs/screenshots/app-icon.png" width="96" alt="Nyan-Q">
 </p>
 
 面向 Windows 的 Clash / Mihomo 桌面客户端，使用 Qt 6 Widgets、C++20 与
@@ -26,7 +26,7 @@ Material 3 风格组件，通过本机 REST API 管理 Mihomo 内核。
 - 编辑器支持 `Shift+Alt+F` 一键格式化：YAML 重新整理块结构缩进（保留注释，块标量内容随父级偏移），JavaScript 整理缩进与空行；格式化前会校验不会改变文档语义
 - JavaScript 配置覆写：QuickJS 独立沙箱、全局/订阅专属脚本、排序、远程脚本更新、历史版本与回滚、预览差异
 - 深色 / 浅色 / 跟随系统主题
-- 系统托盘、单实例、开机启动、启动时最小化、关闭到托盘
+- 状态感知系统托盘图标（待机 / 规则 / 全局 / 直连 / TUN）、单实例、开机启动、启动时最小化、关闭到托盘
 
 ## 构建
 
@@ -132,6 +132,20 @@ build\Release\Nyan-Q.exe
 
 配置名称可直接点击编辑，右侧铅笔按钮用于快速聚焦名称输入框。
 
+### 系统托盘状态图标
+
+系统托盘图标会根据内核运行状态、系统代理开关、代理模式和 TUN 状态自动切换：
+
+![系统托盘状态图标](docs/screenshots/tray-icons.png)
+
+| 状态 | 配色与表情 | 触发条件 |
+| --- | --- | --- |
+| 待机 / 默认 | 灰调 · 闭眼 | 内核未运行，或仅后台运行但未开启系统代理与 TUN |
+| 规则模式 | 翠绿 · `:3` | 内核运行中，开启系统代理（未开启 TUN）且处于规则模式 |
+| 全局模式 | 湛蓝 · 微笑 | 内核运行中，开启系统代理（未开启 TUN）且处于全局模式 |
+| 直连模式 | 青蓝 · `-_-` | 内核运行中，开启系统代理（未开启 TUN）且处于直连模式 |
+| TUN 模式 | 紫罗兰 · `:3` | 内核运行中且已开启 TUN（优先级高于系统代理模式） |
+
 ## TUN 与 Helper 服务
 
 TUN 需要管理员权限，但 Nyan-Q 不再让 GUI 以管理员身份重启。首次开启 TUN 时只安装一次
@@ -218,8 +232,10 @@ $env:NYANQ_DATA_DIR = "D:\NyanQData"
 
 ```powershell
 .\build\Release\Nyan-Q.exe --demo --screenshot .\docs\screenshots\dashboard.png --page dashboard
+.\build\Release\Nyan-Q.exe --demo --theme light --screenshot .\docs\screenshots\dashboard-light.png --page dashboard
 .\build\Release\Nyan-Q.exe --screenshot-editor .\docs\screenshots\config-editor.png
 .\build\Release\Nyan-Q.exe --demo --screenshot-script .\docs\screenshots\script-editor.png
+.\build\Release\Nyan-Q.exe --demo --screenshot-script-test .\docs\screenshots\script-test.png
 ```
 
 冒烟测试：
